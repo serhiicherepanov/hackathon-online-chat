@@ -31,6 +31,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { useActivityHeartbeat } from "@/lib/hooks/use-activity-heartbeat";
 import { useMyDmContacts } from "@/lib/hooks/use-dm-contacts";
 import { useMyRooms } from "@/lib/hooks/use-my-rooms";
 import { useAuthStore } from "@/lib/stores/auth-store";
@@ -82,6 +83,8 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       setUnreadFromServer(json.unread);
     })().catch(() => undefined);
   }, [setUnreadFromServer, me.data?.id]);
+
+  useActivityHeartbeat(Boolean(user?.id));
 
   const myRooms = useMyRooms();
   const dmContacts = useMyDmContacts();
@@ -161,7 +164,10 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           <div className="flex min-h-0 flex-1">
             <aside className="hidden w-80 shrink-0 border-r border-border md:flex md:flex-col">
               <ScrollArea className="h-[calc(100vh-57px)]">
-                <div className="p-3">
+                <div className="space-y-3 p-3">
+                  <Button asChild className="w-full" size="sm" variant="outline">
+                    <Link href="/contacts">Contacts</Link>
+                  </Button>
                   <Accordion type="multiple" defaultValue={["rooms", "dms"]}>
                     <AccordionItem value="rooms">
                       <AccordionTrigger>Rooms</AccordionTrigger>

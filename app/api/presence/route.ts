@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import { requireSessionUser } from "@/lib/auth/session";
 import { centrifugoPresenceClientCount } from "@/lib/centrifugo/server";
+import { computePresenceStatus } from "@/lib/presence/transitions";
+import { prisma } from "@/lib/prisma";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -17,10 +19,28 @@ export async function GET(req: Request) {
     .filter(Boolean);
   const capped = ids.slice(0, 1000);
 
+  const rows = capped.length
+    ? await prisma.presence.findMany({
+        where: { userId: { in: capped } },
+        select: { userId: true, lastActiveAt: true },
+      })
+    : [];
+  const byId = new Map(rows.map((row) => [row.userId, row.lastActiveAt]));
+
   const presence = await Promise.all(
     capped.map(async (userId) => {
       const count = await centrifugoPresenceClientCount(`user:${userId}`);
-      return { userId, online: count > 0 };
+      const lastActiveAt = byId.get(userId) ?? null;
+      const status = computePresenceStatus({
+        connectionCount: count,
+        lastActiveAt,
+      });
+      return {
+        userId,
+        status,
+        online: status !== "offline",
+        lastActiveAt: lastActiveAt?.toISOString() ?? null,
+      };
     }),
   );
 

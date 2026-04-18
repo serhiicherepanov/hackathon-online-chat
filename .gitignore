@@ -18,6 +18,8 @@ prisma/*.db-journal
 .env
 .env.local
 .env.*.local
+# E2E env file holds secrets; commit only the .example template next to it
+.env.e2e
 
 # misc
 *.log

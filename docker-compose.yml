@@ -39,8 +39,12 @@ services:
     volumes:
       - ./centrifugo/config.json:/centrifugo/config.json:ro
     environment:
-      CENTRIFUGO_TOKEN_HMAC_SECRET_KEY: "${CENTRIFUGO_TOKEN_HMAC_SECRET:-dev-centrifugo-hmac-secret-change-me}"
-      CENTRIFUGO_API_KEY: "${CENTRIFUGO_API_KEY:-dev-centrifugo-api-key-change-me}"
+      # Centrifugo 6 env names map to config paths (CENTRIFUGO_<PATH>). Using
+      # CENTRIFUGO_API_KEY / CENTRIFUGO_TOKEN_HMAC_SECRET_KEY produces
+      # "unknown var in environment" warnings and silently falls back to the
+      # config.json values (or empty), which breaks HTTP API auth.
+      CENTRIFUGO_HTTP_API_KEY: "${CENTRIFUGO_API_KEY:-dev-centrifugo-api-key-change-me}"
+      CENTRIFUGO_CLIENT_TOKEN_HMAC_SECRET_KEY: "${CENTRIFUGO_TOKEN_HMAC_SECRET:-dev-centrifugo-hmac-secret-change-me}"
       CENTRIFUGO_CLIENT_ALLOWED_ORIGINS: "${CENTRIFUGO_CLIENT_ALLOWED_ORIGINS:-http://localhost:${TRAEFIK_BIND_PORT:-3080} http://127.0.0.1:${TRAEFIK_BIND_PORT:-3080}}"
     ulimits:
       nofile:

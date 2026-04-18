@@ -10,8 +10,8 @@ export default defineConfig({
   forbidOnly: !!process.env.CI,
   retries: 0,
   reporter: process.env.CI ? "github" : "list",
-  timeout: 30_000,
-  expect: { timeout: 10_000 },
+  timeout: 10_000,
+  expect: { timeout: 5_000 },
   use: {
     baseURL,
     trace: "on-first-retry",
