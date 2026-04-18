@@ -14,7 +14,6 @@ import type {
   MessageCreatedPayload,
   UnreadChangedPayload,
 } from "@/lib/realtime/payloads";
-import { getDmFrozenStateForConversation } from "@/lib/social/relationships";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -119,13 +118,6 @@ export async function POST(req: Request, ctx: Ctx) {
   });
   if (!conv) {
     return NextResponse.json({ error: "not_found" }, { status: 404 });
-  }
-
-  if (conv.type === "dm") {
-    const frozen = await getDmFrozenStateForConversation(prisma, id);
-    if (frozen.frozen) {
-      return NextResponse.json({ error: "dm_frozen" }, { status: 403 });
-    }
   }
 
   const messageId = ulid();

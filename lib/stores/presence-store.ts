@@ -1,33 +1,17 @@
 import { create } from "zustand";
-import type { PresenceStatus } from "@/lib/realtime/payloads";
-
-export type PresenceRow = {
-  userId: string;
-  status: PresenceStatus;
-  online?: boolean;
-  lastActiveAt?: string | null;
-};
 
 type PresenceStore = {
-  map: Record<string, PresenceStatus>;
-  merge: (rows: PresenceRow[]) => void;
-  setStatus: (userId: string, status: PresenceStatus) => void;
+  map: Record<string, boolean>;
+  merge: (rows: { userId: string; online: boolean }[]) => void;
+  setOnline: (userId: string, online: boolean) => void;
 };
-
-function rowToStatus(row: PresenceRow): PresenceStatus {
-  if (row.status) return row.status;
-  return row.online === false ? "offline" : "online";
-}
 
 export const usePresenceStore = create<PresenceStore>((set) => ({
   map: {},
   merge: (rows) =>
     set((s) => ({
-      map: {
-        ...s.map,
-        ...Object.fromEntries(rows.map((r) => [r.userId, rowToStatus(r)])),
-      },
+      map: { ...s.map, ...Object.fromEntries(rows.map((r) => [r.userId, r.online])) },
     })),
-  setStatus: (userId, status) =>
-    set((s) => ({ map: { ...s.map, [userId]: status } })),
+  setOnline: (userId, online) =>
+    set((s) => ({ map: { ...s.map, [userId]: online } })),
 }));

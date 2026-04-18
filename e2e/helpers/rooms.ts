@@ -18,17 +18,7 @@ export async function joinRoomFromCatalog(page: Page, roomName: string) {
     .locator(".rounded-md.border")
     .filter({ hasText: roomName })
     .first();
-  // Wait for the POST /api/rooms/:id/join response before returning. Without
-  // this, the test races: clicking "Join" starts an async request but the
-  // following step (e.g. an API call that assumes membership, or opening
-  // the room) can fire before the server has persisted the RoomMember.
-  const joinResponse = page.waitForResponse(
-    (res) =>
-      /\/api\/rooms\/[^/]+\/join$/.test(new URL(res.url()).pathname) &&
-      res.request().method() === "POST",
-  );
   await card.getByRole("button", { name: "Join" }).click();
-  await joinResponse;
 }
 
 export async function openRoomFromCatalog(page: Page, roomName: string) {

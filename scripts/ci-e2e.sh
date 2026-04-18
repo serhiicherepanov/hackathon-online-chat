@@ -35,40 +35,9 @@ cd "$(dirname "$0")/.."
 # Do NOT force CI=1 here. GitHub Actions sets CI=true on its own; forcing it
 # locally would silently enable Playwright retries (2x) and swap the reporter,
 # which makes headed/UI debugging look like an infinite retry loop.
-
-# E2E runs against the production build (`docker-compose.prod.yml` + baked
-# `next build`). Dev mode's lazy per-route compilation makes the first test of
-# every route blow through its 30s budget, which is never what e2e should
-# exercise. Config is isolated in `.env.e2e` so the pipeline does not touch a
-# developer's local `.env`.
-#
-# `.env.e2e` itself is gitignored (it holds secrets). `.env.e2e.example` is
-# the committed template; if `.env.e2e` is missing we copy the example so a
-# fresh clone / CI runner just works out of the box. Customize locally by
-# editing `.env.e2e` after the first run.
-COMPOSE_FILE_E2E="${COMPOSE_FILE_E2E:-docker-compose.prod.yml}"
-ENV_FILE_E2E="${ENV_FILE_E2E:-.env.e2e}"
-ENV_FILE_E2E_EXAMPLE="${ENV_FILE_E2E_EXAMPLE:-.env.e2e.example}"
-if [ ! -f "$ENV_FILE_E2E" ]; then
-  if [ -f "$ENV_FILE_E2E_EXAMPLE" ]; then
-    echo "info: $ENV_FILE_E2E not found; seeding from $ENV_FILE_E2E_EXAMPLE"
-    cp "$ENV_FILE_E2E_EXAMPLE" "$ENV_FILE_E2E"
-  else
-    echo "error: neither $ENV_FILE_E2E nor $ENV_FILE_E2E_EXAMPLE exist" >&2
-    exit 2
-  fi
-fi
-# Compose v5 has a buildx bake bug that panics on `docker compose up --build`.
-# Disable it so v5 falls back to the classic per-service build path.
-export COMPOSE_BAKE=false
-
-dc() {
-  docker compose -f "$COMPOSE_FILE_E2E" --env-file "$ENV_FILE_E2E" "$@"
-}
-
 export TRAEFIK_BIND_PORT="${TRAEFIK_BIND_PORT:-3080}"
 export PLAYWRIGHT_BASE_URL="${PLAYWRIGHT_BASE_URL:-http://localhost:${TRAEFIK_BIND_PORT}}"
-HEALTH_TIMEOUT="${HEALTH_TIMEOUT:-300}"
+HEALTH_TIMEOUT="${HEALTH_TIMEOUT:-180}"
 
 ARTIFACTS_DIR="${ARTIFACTS_DIR:-$(pwd)/test-artifacts}"
 
@@ -90,13 +59,6 @@ require_cmd curl   "install curl"
 docker compose version >/dev/null 2>&1 \
   || die "\`docker compose\` subcommand is not available" \
          "install Docker Compose v2 (https://docs.docker.com/compose/install/)"
-
-[ -f "$ENV_FILE_E2E" ] || die \
-  "missing $ENV_FILE_E2E" \
-  "restore it from git or copy .env.example (see scripts/ci-e2e.sh)"
-[ -f "$COMPOSE_FILE_E2E" ] || die \
-  "missing $COMPOSE_FILE_E2E" \
-  "restore it from git or override with COMPOSE_FILE_E2E=path"
 
 [ -d node_modules ] \
   || die "node_modules/ is missing" \
@@ -154,14 +116,14 @@ cleanup() {
   echo "==> dumping compose logs to ${ARTIFACTS_DIR}/compose-logs"
   mkdir -p "${ARTIFACTS_DIR}/compose-logs"
   for svc in db centrifugo app traefik; do
-    dc logs --no-color --timestamps "$svc" \
+    docker compose logs --no-color --timestamps "$svc" \
       > "${ARTIFACTS_DIR}/compose-logs/${svc}.log" 2>&1 || true
   done
-  dc ps > "${ARTIFACTS_DIR}/compose-logs/ps.txt" 2>&1 || true
+  docker compose ps > "${ARTIFACTS_DIR}/compose-logs/ps.txt" 2>&1 || true
 
   if [ "${KEEP_STACK:-0}" != "1" ]; then
     echo "==> docker compose down -v"
-    dc down -v --remove-orphans || true
+    docker compose down -v --remove-orphans || true
   else
     echo "KEEP_STACK=1 -> leaving stack running"
   fi
@@ -169,30 +131,13 @@ cleanup() {
 }
 trap cleanup EXIT INT TERM
 
-# Compose v5 has a buildx/bake regression that crashes even with
-# COMPOSE_BAKE=false on some environments (panic in build_bake.go). Build the
-# app image out-of-band with the legacy builder, then `compose up --no-build`.
-# Compose would tag the built image as `<project>-app`. Pre-build with that
-# tag so `up --no-build` finds it.
-APP_IMAGE="hackathon-online-chat-app:latest"
-echo "==> docker build (target=production) -> $APP_IMAGE"
-set -a
-# shellcheck source=/dev/null  # env file, runtime-provided path
-. "$ENV_FILE_E2E"
-set +a
-DOCKER_BUILDKIT=0 docker build \
-  --target production \
-  --build-arg "NEXT_PUBLIC_CENTRIFUGO_WS_URL=${NEXT_PUBLIC_CENTRIFUGO_WS_URL}" \
-  -t "$APP_IMAGE" \
-  .
-
-echo "==> docker compose -f $COMPOSE_FILE_E2E --env-file $ENV_FILE_E2E up -d --no-build"
-dc up -d --no-build
+echo "==> docker compose up -d --build"
+docker compose up -d --build
 
 echo "==> waiting for ${PLAYWRIGHT_BASE_URL}/api/health"
 if ! scripts/wait-for-health.sh "$PLAYWRIGHT_BASE_URL" "$HEALTH_TIMEOUT"; then
   echo "health never came up, dumping app logs:" >&2
-  dc logs --tail=200 app >&2 || true
+  docker compose logs --tail=200 app >&2 || true
   exit 1
 fi
 

@@ -8,35 +8,6 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 
-type RegisterErrorResponse = {
-  error?: string;
-  details?: {
-    formErrors?: string[];
-    fieldErrors?: Record<string, string[] | undefined>;
-  };
-};
-
-function getRegisterErrorMessage(payload: RegisterErrorResponse | null) {
-  const formError = payload?.details?.formErrors?.[0];
-  if (formError) {
-    return formError;
-  }
-
-  const fieldErrors = payload?.details?.fieldErrors;
-  if (!fieldErrors) {
-    return null;
-  }
-
-  for (const messages of Object.values(fieldErrors)) {
-    const message = messages?.[0];
-    if (message) {
-      return message;
-    }
-  }
-
-  return null;
-}
-
 export default function SignUpPage() {
   const router = useRouter();
   const [email, setEmail] = useState("");
@@ -55,14 +26,12 @@ export default function SignUpPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email, username, password }),
       });
-      const payload = (await res.json().catch(() => null)) as RegisterErrorResponse | null;
-
       if (res.status === 409) {
         setError("Email or username is already taken.");
         return;
       }
       if (!res.ok) {
-        setError(getRegisterErrorMessage(payload) ?? "Could not create account.");
+        setError("Could not create account.");
         return;
       }
       router.push("/rooms");

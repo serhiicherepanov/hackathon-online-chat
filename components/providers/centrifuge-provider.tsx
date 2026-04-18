@@ -7,11 +7,9 @@ import { createCentrifuge } from "@/lib/centrifuge";
 import { useActiveConversationStore } from "@/lib/stores/active-conversation-store";
 import { useConnectionStore } from "@/lib/stores/connection-store";
 import { usePresenceStore } from "@/lib/stores/presence-store";
-import { useTypingStore } from "@/lib/stores/typing-store";
 import { useUnreadStore } from "@/lib/stores/unread-store";
 import type {
   PresenceChangedPayload,
-  SocialEventPayload,
   UnreadChangedPayload,
 } from "@/lib/realtime/payloads";
 
@@ -27,21 +25,6 @@ const CentrifugeContext = createContext<CentrifugeContextValue>({
 
 export function useCentrifugeContext(): CentrifugeContextValue {
   return useContext(CentrifugeContext);
-}
-
-function handleSocialEvent(
-  data: SocialEventPayload,
-  queryClient: ReturnType<typeof useQueryClient>,
-) {
-  void queryClient.invalidateQueries({ queryKey: ["me", "friends"] });
-  if (data.type === "dm.frozen" || data.type === "block.created" || data.type === "block.removed") {
-    void queryClient.invalidateQueries({ queryKey: ["me", "dm-contacts"] });
-  }
-}
-
-function derivePresenceStatus(data: PresenceChangedPayload): "online" | "afk" | "offline" {
-  if (data.status) return data.status;
-  return data.online === false ? "offline" : "online";
 }
 
 export function CentrifugeProvider({
@@ -95,51 +78,26 @@ export function CentrifugeProvider({
     try {
       userSub = instance.newSubscription(`user:${userId}`);
       userSub.on("publication", (ctx) => {
-        const data = ctx.data as
-          | UnreadChangedPayload
-          | PresenceChangedPayload
-          | SocialEventPayload;
-        if (!data || typeof data !== "object") return;
+        const data = ctx.data as UnreadChangedPayload;
+        if (data?.type !== "unread.changed") return;
 
-        if (data.type === "unread.changed") {
-          void queryClient.invalidateQueries({ queryKey: ["me", "dm-contacts"] });
+        void queryClient.invalidateQueries({ queryKey: ["me", "dm-contacts"] });
 
-          const active = useActiveConversationStore.getState().conversationId;
-          if (data.conversationId === active) {
-            void fetch(`/api/conversations/${active}/read`, {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({}),
-            }).catch(() => undefined);
-            useUnreadStore.getState().clear(active);
-            return;
-          }
-
-          if (typeof data.unread === "number") {
-            useUnreadStore.getState().setCount(data.conversationId, data.unread);
-          } else if (typeof data.unreadDelta === "number") {
-            useUnreadStore.getState().mergeDelta(data.conversationId, data.unreadDelta);
-          }
+        const active = useActiveConversationStore.getState().conversationId;
+        if (data.conversationId === active) {
+          void fetch(`/api/conversations/${active}/read`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({}),
+          }).catch(() => undefined);
+          useUnreadStore.getState().clear(active);
           return;
         }
 
-        if (data.type === "presence.changed") {
-          usePresenceStore
-            .getState()
-            .setStatus(data.userId, derivePresenceStatus(data));
-          return;
-        }
-
-        if (
-          data.type === "friend.request" ||
-          data.type === "friend.accepted" ||
-          data.type === "friend.removed" ||
-          data.type === "block.created" ||
-          data.type === "block.removed" ||
-          data.type === "dm.frozen"
-        ) {
-          handleSocialEvent(data, queryClient);
-          return;
+        if (typeof data.unread === "number") {
+          useUnreadStore.getState().setCount(data.conversationId, data.unread);
+        } else if (typeof data.unreadDelta === "number") {
+          useUnreadStore.getState().mergeDelta(data.conversationId, data.unreadDelta);
         }
       });
       userSub.subscribe();
@@ -148,9 +106,7 @@ export function CentrifugeProvider({
       presenceSub.on("publication", (ctx) => {
         const data = ctx.data as PresenceChangedPayload;
         if (data?.type !== "presence.changed") return;
-        usePresenceStore
-          .getState()
-          .setStatus(data.userId, derivePresenceStatus(data));
+        usePresenceStore.getState().setOnline(data.userId, data.online);
       });
       presenceSub.subscribe();
     } catch {
@@ -159,13 +115,7 @@ export function CentrifugeProvider({
 
     instance.connect();
 
-    // Expire typing indicators regardless of new events.
-    const pruneHandle = window.setInterval(() => {
-      useTypingStore.getState().prune();
-    }, 1000);
-
     return () => {
-      window.clearInterval(pruneHandle);
       try {
         void userSub?.unsubscribe();
         void presenceSub?.unsubscribe();

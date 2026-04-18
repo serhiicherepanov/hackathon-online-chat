@@ -3,7 +3,6 @@ import { useQuery } from "@tanstack/react-query";
 export type DmContactRow = {
   conversationId: string;
   peer: { id: string; username: string };
-  frozen: boolean;
 };
 
 export function useMyDmContacts() {

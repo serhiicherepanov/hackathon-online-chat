@@ -13,12 +13,12 @@ import {
   roomIdFromUrl,
   searchRoomCatalog,
 } from "./helpers/rooms";
-import { befriendContexts } from "./helpers/social";
 
 test.describe("R0 acceptance (13.x)", () => {
   test("13.2 public room: join, live message, unread clears when opening room", async ({
     browser,
   }) => {
+    test.setTimeout(120_000);
     const users = makeUsers("t132");
     const roomName = `general_${users.a.username}`;
 
@@ -67,10 +67,6 @@ test.describe("R0 acceptance (13.x)", () => {
     await register(pageA, users.a);
     await register(pageB, users.b);
 
-    // R2 requires an accepted friendship before a DM can be created. This
-    // was previously open to all users; see lib/social/relationships.ts.
-    await befriendContexts(ctxA, ctxB);
-
     await pageA.getByRole("button", { name: "+ New DM" }).click();
     const dmDlg = pageA.getByRole("dialog", { name: "Start a DM" });
     await dmDlg.getByPlaceholder("Username").fill(users.b.username);
@@ -117,13 +113,8 @@ test.describe("R0 acceptance (13.x)", () => {
     await joinRoomFromCatalog(pageB, roomName);
     await openRoomFromCatalog(pageB, roomName);
 
-    // R2 replaced the boolean `data-online` attribute on member rows with a
-    // three-state `data-presence` ("online" | "afk" | "offline"). The
-    // member-list component in `components/chat/member-list.tsx` now emits
-    // only `data-presence=<status>`; this test was authored against the R0
-    // attribute and needs to track that rename.
     const memberA = pageB.getByTestId(`member-${users.a.username}`);
-    await expect(memberA).toHaveAttribute("data-presence", "online", {
+    await expect(memberA).toHaveAttribute("data-online", "true", {
       timeout: 20_000,
     });
 
@@ -131,7 +122,7 @@ test.describe("R0 acceptance (13.x)", () => {
     await ctxA.storageState({ path: storagePath });
     await ctxA.close();
 
-    await expect(memberA).toHaveAttribute("data-presence", "offline", {
+    await expect(memberA).toHaveAttribute("data-online", "false", {
       timeout: 15_000,
     });
 
@@ -145,7 +136,7 @@ test.describe("R0 acceptance (13.x)", () => {
       timeout: 30_000,
     });
 
-    await expect(memberA).toHaveAttribute("data-presence", "online", {
+    await expect(memberA).toHaveAttribute("data-online", "true", {
       timeout: 20_000,
     });
 

@@ -19,18 +19,7 @@ export async function POST(req: Request) {
 
   const parsed = registerBody.safeParse(json);
   if (!parsed.success) {
-    const { fieldErrors, formErrors } = parsed.error.flatten();
-
-    return NextResponse.json(
-      {
-        error: "validation_error",
-        details: {
-          formErrors,
-          fieldErrors,
-        },
-      },
-      { status: 400 },
-    );
+    return NextResponse.json({ error: "validation_error" }, { status: 400 });
   }
 
   const email = parsed.data.email.trim().toLowerCase();

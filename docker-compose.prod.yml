@@ -51,13 +51,8 @@ services:
     volumes:
       - ./centrifugo/config.json:/centrifugo/config.json:ro
     environment:
-      # Centrifugo 6 maps env vars to config paths: CENTRIFUGO_<PATH>. Using
-      # our legacy CENTRIFUGO_API_KEY / CENTRIFUGO_TOKEN_HMAC_SECRET names
-      # resulted in "unknown var in environment" warnings and the HTTP API
-      # falling back to an empty key — causing 401 on every publish/
-      # broadcast/presence call. Map to the real config paths.
-      CENTRIFUGO_HTTP_API_KEY: "${CENTRIFUGO_API_KEY:?set CENTRIFUGO_API_KEY in .env}"
-      CENTRIFUGO_CLIENT_TOKEN_HMAC_SECRET_KEY: "${CENTRIFUGO_TOKEN_HMAC_SECRET:?set CENTRIFUGO_TOKEN_HMAC_SECRET in .env}"
+      CENTRIFUGO_TOKEN_HMAC_SECRET_KEY: "${CENTRIFUGO_TOKEN_HMAC_SECRET:?set CENTRIFUGO_TOKEN_HMAC_SECRET in .env}"
+      CENTRIFUGO_API_KEY: "${CENTRIFUGO_API_KEY:?set CENTRIFUGO_API_KEY in .env}"
       # Browser Origin header allowlist for /connection/websocket. Must include
       # the public HTTPS origin the app is served from (no trailing slash).
       CENTRIFUGO_CLIENT_ALLOWED_ORIGINS: "${CENTRIFUGO_CLIENT_ALLOWED_ORIGINS:?set CENTRIFUGO_CLIENT_ALLOWED_ORIGINS to your public https:// origin}"

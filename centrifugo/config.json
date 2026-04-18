@@ -6,7 +6,9 @@
     "address": "0.0.0.0",
     "port": "3080"
   },
-  "http_api": {},
+  "http_api": {
+    "key": "dev-centrifugo-api-key-change-me"
+  },
   "client": {
     "allowed_origins": [
       "http://localhost:3080",
@@ -41,33 +43,21 @@
         "subscribe_proxy_enabled": true,
         "presence": true,
         "allow_subscribe_for_client": true,
-        "allow_presence_for_subscriber": true,
-        "history_size": 50,
-        "history_ttl": "60s",
-        "force_recovery": true,
-        "allow_history_for_subscriber": true
+        "allow_presence_for_subscriber": true
       },
       {
         "name": "room",
         "subscribe_proxy_enabled": true,
         "presence": true,
         "allow_subscribe_for_client": true,
-        "allow_presence_for_subscriber": true,
-        "history_size": 50,
-        "history_ttl": "60s",
-        "force_recovery": true,
-        "allow_history_for_subscriber": true
+        "allow_presence_for_subscriber": true
       },
       {
         "name": "dm",
         "subscribe_proxy_enabled": true,
         "presence": true,
         "allow_subscribe_for_client": true,
-        "allow_presence_for_subscriber": true,
-        "history_size": 50,
-        "history_ttl": "60s",
-        "force_recovery": true,
-        "allow_history_for_subscriber": true
+        "allow_presence_for_subscriber": true
       }
     ]
   }
