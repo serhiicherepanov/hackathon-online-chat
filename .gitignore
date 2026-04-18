@@ -1,0 +1,30 @@
+# dependencies
+node_modules/
+.pnpm-store/
+
+# next.js
+.next/
+out/
+next-env.d.ts
+
+# prisma
+prisma/*.db
+prisma/*.db-journal
+
+# uploads
+uploads/
+
+# env
+.env
+.env.local
+.env.*.local
+
+# misc
+*.log
+.DS_Store
+.turbo
+coverage/
+*.tsbuildinfo
+
+# playwright MCP scratch
+.playwright-mcp/

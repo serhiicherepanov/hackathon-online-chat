@@ -5,9 +5,10 @@ personal messages, contacts/friends, file and image sharing, basic moderation,
 and persistent message history. Designed for ~300 concurrent users, ~1000
 participants per room, and multi-year message retention.
 
-> **Status:** planning / pre-R0. The codebase has not been scaffolded yet; this
-> README documents the intent and is kept in lock-step with the actual project
-> state (see the [Readme maintenance rule](#readme-maintenance-rule) below).
+> **Status:** R0 scaffold complete — `docker compose up` from repo root boots
+> Next.js, PostgreSQL, and Centrifugo with Prisma migrations applied on first
+> boot. Feature work (auth, rooms, DMs, messaging) lands in subsequent
+> changes. See [Readme maintenance rule](#readme-maintenance-rule).
 
 ## Table of contents
 
@@ -68,14 +69,43 @@ Architecture and boundaries are detailed in [`AGENTS.md`](AGENTS.md).
 ├── REQUIREMENTS.md              # pointer to spec
 ├── AGENTS.md                    # architecture + rules for agents & contributors
 ├── README.md                    # this file
-├── docs/
-│   ├── index.md                 # spec TOC
-│   ├── requirements/            # functional, non-functional, UI, wireframes
-│   └── plan/                    # release-by-release delivery plan
-└── openspec/                    # optional workflow config
+├── docker-compose.yml           # traefik + app + db + centrifugo orchestration
+├── Dockerfile                   # app container image (Node 20 + pnpm)
+├── .env.example                 # all runtime env vars with dev defaults
+├── next.config.ts               # Next.js config
+├── tsconfig.json                # strict TS config with @/* alias
+├── tailwind.config.ts           # Tailwind + shadcn theme tokens
+├── postcss.config.mjs           # PostCSS pipeline
+├── components.json              # shadcn/ui config (new-york, neutral)
+├── eslint.config.mjs            # ESLint flat config (next/typescript)
+├── package.json                 # pnpm scripts & deps
+├── app/                         # Next.js App Router (pages + API routes)
+│   ├── api/
+│   │   ├── health/              # GET /api/health
+│   │   └── centrifugo/connect/  # POST /api/centrifugo/connect
+│   ├── (debug)/stack-check/     # smoke-test page (deleted by next change)
+│   ├── layout.tsx
+│   ├── page.tsx
+│   └── globals.css
+├── components/
+│   └── providers.tsx            # Query + Centrifuge client providers
+├── lib/
+│   ├── prisma.ts                # PrismaClient singleton
+│   ├── logger.ts                # pino logger singleton
+│   ├── centrifuge.ts            # centrifuge-js factory
+│   ├── utils.ts                 # cn() helper
+│   └── stores/
+│       └── connection-store.ts  # Zustand Centrifugo connection state
+├── prisma/
+│   ├── schema.prisma            # User model (R0 placeholder)
+│   └── migrations/              # committed migration history
+├── centrifugo/
+│   └── config.json              # mounted read-only into the container
+├── docker/
+│   └── app-entrypoint.sh        # migrate → next dev, JSON log lines
+├── docs/                        # spec (functional, non-functional, plan)
+└── openspec/                    # change proposals, deltas, archive
 ```
-
-Application code, `docker-compose.yml`, and `.env.example` will appear in R0.
 
 ## Requirements
 
@@ -98,7 +128,7 @@ product. See [`docs/plan/index.md`](docs/plan/index.md).
 
 | Release | Theme |
 |---------|-------|
-| [R0 — Demo-able MVP](docs/plan/r0-mvp.md) | Compose, auth, rooms (public + private flag), DMs, realtime text, unread badges, online/offline presence |
+| [R0 — Demo-able MVP](docs/plan/r0-mvp.md) | Compose, auth, rooms (public + private flag), DMs, realtime text, unread badges, online/offline presence · scaffold ✅ |
 | [R1 — Rich Messaging](docs/plan/r1-rich-messaging.md) | Attachments (file + image), reply, edit, delete, multiline, emoji |
 | [R2 — Social & Presence](docs/plan/r2-social-presence.md) | Friends, blocks with frozen DMs, AFK/multi-tab, typing |
 | [R3 — Moderation & Admin](docs/plan/r3-moderation.md) | Roles, bans, invitations, Manage Room modal, live access revocation |
@@ -107,34 +137,103 @@ product. See [`docs/plan/index.md`](docs/plan/index.md).
 
 ## Setup & running locally
 
-> Will be populated at the start of R0 when `docker-compose.yml` lands. Placeholder is
-> intentional — keep this section truthful (see
-> [Readme maintenance rule](#readme-maintenance-rule)).
-
-Planned shape:
+Prerequisites: **Docker** (with Compose v2). Nothing else is required on the
+host — Node.js, pnpm, Postgres, and Centrifugo all run inside containers.
 
 ```bash
 git clone <repo>
 cd <repo>
-cp .env.example .env
 docker compose up --build
-# open http://localhost:3000
+# open http://localhost:3080
 ```
 
-`docker compose up` from the repository root must be the only command required
-to run the full stack (per [submission rules](docs/requirements/submission.md)).
+Creating a `.env` file is **optional**; `docker-compose.yml` ships working dev
+defaults for every variable listed in [`.env.example`](.env.example). Copy and
+customise only if you need to override them:
+
+```bash
+cp .env.example .env
+```
+
+### Ports
+
+**Only Traefik publishes a host port.** All other services talk to each other
+over the compose internal network. The host port is controlled by
+`TRAEFIK_BIND_PORT` (default `3080`).
+
+| Port   | Service    | Notes                                                       |
+|--------|------------|-------------------------------------------------------------|
+| `3080` | traefik    | Single public entrypoint (override with `TRAEFIK_BIND_PORT`) |
+| —      | app        | Internal only — Next.js listens on `3080` inside the container |
+| —      | centrifugo | Internal only — Centrifugo listens on `3080` inside the container |
+| —      | db         | Internal only — Postgres listens on `5432` inside the container |
+
+Traefik routes:
+
+| Path prefix           | Target             |
+|-----------------------|--------------------|
+| `/connection/*`       | `centrifugo:3080`  |
+| everything else (`/`) | `app:3080`         |
+
+Smoke checks once the stack is up:
+
+- `http://localhost:3080/` — landing page
+- `http://localhost:3080/api/health` — `{"status":"ok","db":"up"}`
+- `http://localhost:3080/stack-check` — TanStack Query, Centrifugo
+  `connected` state, and a React Virtuoso list of 100 rows
+
+To access the database directly (e.g. with `psql` or Prisma Studio), exec into
+the container or add a temporary `ports:` mapping to the `db` service.
+
+JSON logs stream via `docker compose logs -f app`. For human-readable output
+pipe through `pino-pretty` on the host:
+
+```bash
+docker compose logs -f app | npx pino-pretty
+```
+
+Shut down with `docker compose down`; add `-v` to wipe the Postgres and
+uploads volumes.
 
 ## Environment variables
 
-> Will be populated when `.env.example` is created in R0. Expected variables
-> include `DATABASE_URL`, `CENTRIFUGO_HTTP_API`, `CENTRIFUGO_TOKEN_HMAC`,
-> `AUTH_SECRET`, `UPLOADS_DIR`.
+All variables below are documented in [`.env.example`](.env.example) with
+dev-only defaults. Override by creating a local `.env`.
+
+| Variable                        | Purpose                                             |
+|---------------------------------|-----------------------------------------------------|
+| `DATABASE_URL`                  | Prisma connection string (points at `db` service)   |
+| `CENTRIFUGO_TOKEN_HMAC_SECRET`  | Shared HMAC secret for Centrifugo connect tokens    |
+| `CENTRIFUGO_API_KEY`            | Centrifugo HTTP API key for server-to-server calls  |
+| `CENTRIFUGO_URL`                | Centrifugo HTTP API URL (container network)         |
+| `NEXT_PUBLIC_CENTRIFUGO_WS_URL` | WebSocket URL used by the browser                   |
+| `SESSION_SECRET`                | Secret for session cookies (used by R0 auth change) |
+| `UPLOADS_DIR`                   | Path for uploaded files (reserved for R1)           |
+| `LOG_LEVEL`                     | pino log level (default `info`)                     |
 
 ## Development workflow
 
-> Will be populated once the Next.js app is scaffolded. Will cover at minimum:
-> `npm run dev`, Prisma migrate commands, running linters, and how to talk to
-> Centrifugo locally.
+Most contributors never need pnpm on the host — every script runs inside the
+`app` container. To run them locally anyway:
+
+```bash
+pnpm install
+pnpm dev          # Next.js dev server
+pnpm build        # production build
+pnpm lint         # ESLint
+pnpm typecheck    # strict tsc --noEmit
+pnpm db:migrate   # apply committed Prisma migrations
+pnpm db:generate  # regenerate Prisma Client
+pnpm db:studio    # open Prisma Studio
+```
+
+To author a new migration, shell into the running `app` container (no ports
+are published for `db`, so authoring from the host isn't possible without
+temporarily exposing it):
+
+```bash
+docker compose exec app pnpm prisma migrate dev --name <describe-change>
+```
 
 ## Submission
 

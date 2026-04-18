@@ -1,0 +1,93 @@
+services:
+  traefik:
+    image: traefik:v3.3
+    command:
+      - "--providers.docker=true"
+      - "--providers.docker.exposedbydefault=false"
+      - "--entrypoints.web.address=:3080"
+      - "--log.level=INFO"
+      - "--log.format=json"
+      - "--accesslog=false"
+    ports:
+      - "${TRAEFIK_BIND_PORT:-3080}:3080"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    depends_on:
+      app:
+        condition: service_started
+      centrifugo:
+        condition: service_started
+
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: chat
+      POSTGRES_PASSWORD: chat
+      POSTGRES_DB: chat
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U chat -d chat"]
+      interval: 2s
+      timeout: 3s
+      retries: 20
+
+  centrifugo:
+    image: centrifugo/centrifugo:v5
+    command: centrifugo -c /centrifugo/config.json
+    volumes:
+      - ./centrifugo/config.json:/centrifugo/config.json:ro
+    environment:
+      CENTRIFUGO_TOKEN_HMAC_SECRET_KEY: "${CENTRIFUGO_TOKEN_HMAC_SECRET:-dev-centrifugo-hmac-secret-change-me}"
+      CENTRIFUGO_API_KEY: "${CENTRIFUGO_API_KEY:-dev-centrifugo-api-key-change-me}"
+    ulimits:
+      nofile:
+        soft: 65536
+        hard: 65536
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.centrifugo.rule=PathPrefix(`/connection`)"
+      - "traefik.http.routers.centrifugo.entrypoints=web"
+      - "traefik.http.routers.centrifugo.priority=100"
+      - "traefik.http.services.centrifugo.loadbalancer.server.port=3080"
+
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    depends_on:
+      db:
+        condition: service_healthy
+      centrifugo:
+        condition: service_started
+    environment:
+      DATABASE_URL: "${DATABASE_URL:-postgresql://chat:chat@db:5432/chat?schema=public}"
+      CENTRIFUGO_TOKEN_HMAC_SECRET: "${CENTRIFUGO_TOKEN_HMAC_SECRET:-dev-centrifugo-hmac-secret-change-me}"
+      CENTRIFUGO_API_KEY: "${CENTRIFUGO_API_KEY:-dev-centrifugo-api-key-change-me}"
+      CENTRIFUGO_URL: "${CENTRIFUGO_URL:-http://centrifugo:3080}"
+      NEXT_PUBLIC_CENTRIFUGO_WS_URL: "${NEXT_PUBLIC_CENTRIFUGO_WS_URL:-ws://localhost:${TRAEFIK_BIND_PORT:-3080}/connection/websocket}"
+      SESSION_SECRET: "${SESSION_SECRET:-dev-session-secret-change-me}"
+      UPLOADS_DIR: "${UPLOADS_DIR:-/app/uploads}"
+      LOG_LEVEL: "${LOG_LEVEL:-info}"
+      NODE_ENV: "development"
+      PORT: "3080"
+      HOSTNAME: "0.0.0.0"
+      WATCHPACK_POLLING: "true"
+      CHOKIDAR_USEPOLLING: "true"
+    volumes:
+      - .:/app
+      - app_node_modules:/app/node_modules
+      - app_next_cache:/app/.next
+      - uploads:/app/uploads
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.app.rule=PathPrefix(`/`)"
+      - "traefik.http.routers.app.entrypoints=web"
+      - "traefik.http.routers.app.priority=1"
+      - "traefik.http.services.app.loadbalancer.server.port=3080"
+
+volumes:
+  pgdata:
+  uploads:
+  app_node_modules:
+  app_next_cache:
