@@ -23,6 +23,32 @@ export async function GET() {
     orderBy: { joinedAt: "asc" },
   });
 
+  const peerIds = rows
+    .map((row) =>
+      row.conversation.dmParticipants
+        .map((participant) => participant.user)
+        .find((user) => user.id !== gate.user.id)?.id,
+    )
+    .filter((userId): userId is string => Boolean(userId));
+
+  const blocks = peerIds.length
+    ? await prisma.userBlock.findMany({
+        where: {
+          OR: [
+            { blockerId: gate.user.id, blockedId: { in: peerIds } },
+            { blockerId: { in: peerIds }, blockedId: gate.user.id },
+          ],
+        },
+        select: { blockerId: true, blockedId: true },
+      })
+    : [];
+
+  const frozenPeerIds = new Set(
+    blocks.map((block) =>
+      block.blockerId === gate.user.id ? block.blockedId : block.blockerId,
+    ),
+  );
+
   const contacts = rows.map((row) => {
     const peer = row.conversation.dmParticipants
       .map((p) => p.user)
@@ -30,6 +56,7 @@ export async function GET() {
     return {
       conversationId: row.conversationId,
       peer: peer ?? { id: "", username: "unknown" },
+      frozen: peer ? frozenPeerIds.has(peer.id) : false,
     };
   });
 

@@ -23,13 +23,28 @@ export function makeUsers(prefix: string): { a: TestUser; b: TestUser } {
   };
 }
 
+/**
+ * Register via the API instead of the sign-up form. Cookies set on the
+ * response propagate to the enclosing BrowserContext (they share a cookie
+ * jar with `context.request`), so any page created in that context is
+ * already signed in. The sign-up UI itself is covered by its own test
+ * (`app/(auth)/sign-up/page.test.tsx`) and the full form flow in smoke
+ * specs — there is no need to pay for a full page load in every e2e.
+ *
+ * This keeps test setup under the 10s per-test budget; driving the form via
+ * Playwright routinely costs 1.5-2s per user on a cold prod bundle.
+ */
 export async function register(page: Page, u: TestUser) {
-  await page.goto("/sign-up");
-  await page.getByLabel("Email").fill(u.email);
-  await page.getByLabel("Username").fill(u.username);
-  await page.getByLabel("Password").fill(u.password);
-  await page.getByRole("button", { name: "Create account" }).click();
-  await page.waitForURL("**/rooms", { timeout: 60_000 });
+  const res = await page.context().request.post("/api/auth/register", {
+    data: { email: u.email, username: u.username, password: u.password },
+  });
+  if (!res.ok()) {
+    throw new Error(
+      `register failed: ${res.status()} ${await res.text().catch(() => "")}`,
+    );
+  }
+  await page.goto("/rooms");
+  await page.waitForURL("**/rooms", { timeout: 30_000 });
 }
 
 export async function signIn(page: Page, u: TestUser) {

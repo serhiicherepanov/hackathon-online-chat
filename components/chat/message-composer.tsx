@@ -24,12 +24,18 @@ function formatSize(n: number): string {
   return `${(n / 1024 / 1024).toFixed(1)} MB`;
 }
 
+const TYPING_PUBLISH_THROTTLE_MS = 1500;
+
 export function MessageComposer({
   conversationId,
   onSent,
+  disabled = false,
+  disabledReason,
 }: {
   conversationId: string;
   onSent?: () => void;
+  disabled?: boolean;
+  disabledReason?: string;
 }) {
   const [text, setText] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -37,6 +43,17 @@ export function MessageComposer({
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const fileInputId = useId();
+  const lastTypingPublishRef = useRef(0);
+
+  const publishTyping = useCallback(() => {
+    if (disabled) return;
+    const now = Date.now();
+    if (now - lastTypingPublishRef.current < TYPING_PUBLISH_THROTTLE_MS) return;
+    lastTypingPublishRef.current = now;
+    void fetch(`/api/conversations/${conversationId}/typing`, {
+      method: "POST",
+    }).catch(() => undefined);
+  }, [conversationId, disabled]);
 
   const convState = useComposerStore(
     (s) => s.byConv[conversationId] ?? EMPTY_CONV_STATE,
@@ -213,6 +230,18 @@ export function MessageComposer({
     [uploadFile],
   );
 
+  if (disabled) {
+    return (
+      <div
+        className="border-t border-border p-4 text-sm text-muted-foreground"
+        data-testid="composer-root"
+        data-disabled="true"
+      >
+        {disabledReason ?? "This conversation is read-only."}
+      </div>
+    );
+  }
+
   return (
     <div className="border-t border-border p-3" data-testid="composer-root">
       {convState.replyTarget ? (
@@ -300,7 +329,10 @@ export function MessageComposer({
         <TextareaAutosize
           ref={textareaRef}
           value={text}
-          onChange={(e) => setText(e.target.value)}
+          onChange={(e) => {
+            setText(e.target.value);
+            if (e.target.value.trim().length > 0) publishTyping();
+          }}
           onPaste={onPaste}
           onKeyDown={(e) => {
             if (e.key === "Enter" && !e.shiftKey) {

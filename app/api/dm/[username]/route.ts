@@ -1,6 +1,10 @@
 import { NextResponse } from "next/server";
 import { requireSessionUser } from "@/lib/auth/session";
 import { prisma } from "@/lib/prisma";
+import {
+  findFriendshipForPair,
+  hasActiveBlockBetween,
+} from "@/lib/social/relationships";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -32,27 +36,45 @@ export async function POST(_req: Request, ctx: Ctx) {
 
   const dmKey = [gate.user.id, target.id].sort().join(":");
 
+  const existingConversation = await prisma.conversation.findUnique({
+    where: { dmKey },
+    select: { id: true },
+  });
+
+  if (existingConversation) {
+    await prisma.dmParticipant.createMany({
+      data: [
+        { conversationId: existingConversation.id, userId: gate.user.id },
+        { conversationId: existingConversation.id, userId: target.id },
+      ],
+      skipDuplicates: true,
+    });
+
+    return NextResponse.json({
+      conversationId: existingConversation.id,
+      peer: { id: target.id, username: target.username },
+    });
+  }
+
+  if (await hasActiveBlockBetween(prisma, gate.user.id, target.id)) {
+    return NextResponse.json({ error: "blocked_pair" }, { status: 403 });
+  }
+
+  const friendship = await findFriendshipForPair(prisma, gate.user.id, target.id);
+  if (friendship?.status !== "accepted") {
+    return NextResponse.json({ error: "friendship_required" }, { status: 403 });
+  }
+
   const conversation = await prisma.$transaction(async (tx) => {
-    let conv = await tx.conversation.findUnique({ where: { dmKey } });
-    if (!conv) {
-      conv = await tx.conversation.create({
-        data: { type: "dm", dmKey },
-      });
-      await tx.dmParticipant.createMany({
-        data: [
-          { conversationId: conv.id, userId: gate.user.id },
-          { conversationId: conv.id, userId: target.id },
-        ],
-      });
-    } else {
-      await tx.dmParticipant.createMany({
-        data: [
-          { conversationId: conv.id, userId: gate.user.id },
-          { conversationId: conv.id, userId: target.id },
-        ],
-        skipDuplicates: true,
-      });
-    }
+    const conv = await tx.conversation.create({
+      data: { type: "dm", dmKey },
+    });
+    await tx.dmParticipant.createMany({
+      data: [
+        { conversationId: conv.id, userId: gate.user.id },
+        { conversationId: conv.id, userId: target.id },
+      ],
+    });
     return conv;
   });
 

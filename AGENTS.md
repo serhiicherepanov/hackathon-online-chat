@@ -24,6 +24,31 @@ Do this **before** you treat a change as done, push, or rely on CI—otherwise y
 - If you add a **shared helper** (`lib/…`), add the **`.ts` file in the same change** as the first import—never leave consumers pointing at a path you “will add next.”
 - When you touch **pure logic** or new components, also run **`pnpm test`** (see Testing below); CI runs typecheck + unit tests together.
 
+## Regression discipline: logic changes must update tests
+
+When a change modifies **user-visible behavior, API contracts, validation, or
+gating rules** (auth, authz, friendship gates, block rules, presence
+semantics, message/DM visibility, rate limits, error shapes), it **must** also
+update every pre-existing unit/e2e test that exercises the old behavior in
+the **same commit/branch**.
+
+- Before you say "done", `rg` for callers of the changed endpoint/helper
+ across `e2e/`, `app/`, `lib/`, and `openspec/` and adjust them. A green CI
+ on master is the contract; do not leave red tests for "the next phase".
+- Typical trap: a later phase tightens a rule (e.g. R2 added the
+ friendship-gate on `POST /api/dm/:username` → returns 403 for strangers).
+ Every earlier e2e that opened DMs between freshly-registered users must
+ either (a) establish the required precondition via the real API (e.g.
+ `befriendContexts(ctxA, ctxB)` in `e2e/helpers/social.ts`) or (b) use an
+ explicit test seam documented in this file. Do **not** keep the assertion
+ that "strangers can DM" if the spec now says otherwise.
+- Test-only workarounds (hand-crafted DB inserts, bypass flags, "e2e mode"
+ env vars) are a last resort and must be called out in the PR description.
+ Prefer driving the real API.
+- When a fix regresses a previously-passing test, **do not disable or skip
+ the test**. Either fix the underlying issue or update the test to match
+ the new, intentional behavior — and document the reason inline.
+
 ## Critical rules (from requirements)
 
 These are non-negotiable constraints agents must respect; details live in linked docs.
@@ -106,6 +131,74 @@ These are non-negotiable constraints agents must respect; details live in linked
 
   Boundary UIs must show a short human message, a **Retry** action that resets the boundary (and refetches queries where relevant), and log via a single `reportError(err, context)` helper. Keep boundaries **scoped** — don't wrap the entire app in one giant boundary; the sidebar, active room, and composer should fail independently. Server Components and Server Actions use Next.js error files / `try/catch` instead, not React boundaries.
 
+## Interacting with the Docker Compose stack
+
+The whole app runs in Compose — **never** install Postgres, Centrifugo, or Node locally to "just run a script". Run everything through `docker compose`. Commands below assume you're in the repo root and using the dev file (`docker-compose.yml`); swap in `-f docker-compose.prod.yml` for the prod variant.
+
+Before environment-sensitive work (Docker, Prisma, Postgres, Centrifugo, Playwright, migrations, or runtime debugging), re-read this section and follow it instead of falling back to host-only shortcuts.
+
+**Services** (names used with `exec` / `logs` / `run`): `traefik`, `db` (Postgres 16), `centrifugo`, `app` (Next.js).
+
+**Exposed entrypoint:** everything reaches the browser through Traefik at `http://localhost:${TRAEFIK_BIND_PORT:-3080}`. `db` and `centrifugo` are **not** published on the host — reach them via `docker compose exec` or from inside `app`.
+
+### Lifecycle
+
+- **Bring the stack up (dev, with build):** `docker compose up -d --build`
+- **Wait until healthy:** `./scripts/wait-for-health.sh http://localhost:3080 120` (polls `/api/health`).
+- **Status / ports:** `docker compose ps`
+- **Tail logs for one service:** `docker compose logs -f --tail=200 app` (or `db` / `centrifugo` / `traefik`). Prefer `--since=1m` over `-f` when scripting.
+- **Rebuild just the app image after `package.json` / `Dockerfile` changes:** `docker compose build app && docker compose up -d app`
+- **Tear down + wipe volumes (fresh DB, uploads):** `docker compose down -v --remove-orphans`
+
+Do not `docker compose restart app` after editing source in dev — the dev compose bind-mounts the repo and `next dev` hot-reloads. Restart only after dependency / Dockerfile / env changes.
+
+### Running commands inside the app container
+
+Use `docker compose exec app …` for an already-running stack, or `docker compose run --rm app …` for one-shot tasks before the stack is up. The workdir is `/app`, matching the repo root.
+
+- **Shell:** `docker compose exec app sh`
+- **Arbitrary pnpm script:** `docker compose exec app pnpm <script>` — e.g. `pnpm typecheck`, `pnpm test`, `pnpm lint`.
+- **Ad-hoc TypeScript script:** `docker compose exec app pnpm tsx scripts/<name>.ts` (e.g. `scripts/gc-staged-uploads.ts`).
+- **One-shot before stack is up:** `docker compose run --rm app pnpm tsx scripts/<name>.ts`.
+
+### Prisma (migrations, client, studio, seed)
+
+Always run Prisma inside the `app` container — it reads `DATABASE_URL` from the compose env and resolves `db:5432` via the internal network.
+
+- **Apply pending migrations (prod-style, non-interactive):** `docker compose exec app pnpm db:migrate` (`prisma migrate deploy`).
+- **Create a new migration from schema changes (dev, interactive):** `docker compose exec app pnpm db:migrate:dev --name <slug>`.
+- **Regenerate the Prisma client after schema edits:** `docker compose exec app pnpm db:generate` (runs automatically on `pnpm install` via `postinstall`).
+- **Prisma Studio:** `docker compose exec app pnpm db:studio` — then port-forward `5555` if you need browser access (`docker compose exec` already streams it; or publish it temporarily in a local override).
+- **Reset DB to empty + re-run migrations:** `docker compose exec app pnpm prisma migrate reset --force` (destroys data — dev only).
+
+If a migration partially failed and left the DB dirty, prefer `docker compose down -v` to drop the `db` volume entirely over hand-editing `_prisma_migrations`.
+
+### Database (Postgres)
+
+The `db` service runs Postgres 16 with user/db `chat` / `chat` (see `.env.example`).
+
+- **psql shell:** `docker compose exec db psql -U chat -d chat`
+- **One-off SQL:** `docker compose exec -T db psql -U chat -d chat -c "SELECT count(*) FROM \"User\";"`
+- **Dump:** `docker compose exec -T db pg_dump -U chat chat > test-artifacts/db.sql`
+- **Restore into a fresh DB:** `docker compose exec -T db psql -U chat -d chat < test-artifacts/db.sql`
+
+### Centrifugo
+
+Centrifugo's admin HTTP API is on the internal network at `http://centrifugo:3080` and requires `Authorization: apikey ${CENTRIFUGO_API_KEY}`.
+
+- **Presence on a channel:** `docker compose exec app wget -qO- --header="Authorization: apikey $CENTRIFUGO_API_KEY" --post-data='{"channel":"room#<id>"}' http://centrifugo:3080/api/presence`
+- **Global stats:** `docker compose exec app wget -qO- --header="Authorization: apikey $CENTRIFUGO_API_KEY" http://centrifugo:3080/api/info`
+- **Config lives in** `centrifugo/config.json`; restart with `docker compose restart centrifugo` after editing.
+
+### Uploads and local files
+
+Uploads go to `UPLOADS_DIR=/app/uploads` inside the container (Compose volume). To inspect: `docker compose exec app ls -lah /app/uploads`. To wipe between test runs, `docker compose down -v` (the uploads volume goes with it) — never `rm -rf` from the host.
+
+### When NOT to `docker compose exec`
+
+- **Fast unit tests / typecheck during local iteration:** `pnpm test` / `pnpm typecheck` on the host is fine if you have Node + pnpm installed — they don't need the DB or Centrifugo. The canonical CI path still runs them through the container.
+- **E2E / Playwright:** do **not** call `pnpm exec playwright test` directly. Use `./scripts/ci-e2e.sh` (brings the stack up, waits, runs Playwright, tears down). See Testing below.
+
 ## Testing
 
 The repo uses **Vitest** + **React Testing Library** + **jsdom** for unit tests. Tests are **colocated** next to the code they cover (`foo.ts` ↔ `foo.test.ts`, `Button.tsx` ↔ `Button.test.tsx`). No separate `__tests__/` tree.
@@ -114,7 +207,15 @@ Scripts:
 
 - `pnpm test` — run the full Vitest suite once (CI-friendly).
 - `pnpm test:watch` — watch mode while developing.
-- `./scripts/ci-e2e.sh` — full end-to-end pipeline: preflights the environment, brings up the Compose stack with `docker compose up -d --build`, waits for `/api/health`, runs Playwright, and tears the stack down while dumping logs to `test-artifacts/`. **This is the canonical way to run e2e locally** — do not invoke `pnpm exec playwright test` directly against a half-wired stack. Useful env knobs: `KEEP_STACK=1` (leave the stack running for debugging), `HEADED=1` / `DEBUG=1` / `UI=1` (require a DISPLAY), `E2E_ARGS="-g '13.2'"` (forward args to Playwright, e.g. to run a single test).
+- `./scripts/ci-e2e.sh` — full end-to-end pipeline: preflights the environment, brings up the Compose stack, waits for `/api/health`, runs Playwright, and tears the stack down while dumping logs to `test-artifacts/`. **This is the canonical way to run e2e locally** — do not invoke `pnpm exec playwright test` directly against a half-wired stack. Useful env knobs: `KEEP_STACK=1` (leave the stack running for debugging), `HEADED=1` / `DEBUG=1` / `UI=1` (require a DISPLAY), `E2E_ARGS="-g 13.2"` (forward args to Playwright, e.g. to run a single test — keep the value whitespace-free, it is word-split).
+
+**E2E runs against the production build, not `next dev`.** `ci-e2e.sh` uses `docker-compose.prod.yml` with a dedicated `--env-file .env.e2e` (gitignored; `scripts/ci-e2e.sh` seeds it from the committed `.env.e2e.example` on first run), so the pipeline never touches a developer's local `.env`, and Next.js serves precompiled routes instantly. This matters because:
+
+- **Per-test timeout is 10 s** (`playwright.config.ts` `timeout: 10_000`, `expect.timeout: 5_000`). A healthy e2e test against the prod build should finish in **a few seconds**, rarely more than 20–30 s even on cold paths. If a test of yours needs more, the test is wrong, not the budget — don't add `test.setTimeout(...)` overrides to paper over dev-mode JIT or flaky waits.
+- **Do not introduce a `next dev` path into e2e.** Dev mode compiles each route on first access (10–20 s per route) and will blow the 10 s budget on the first navigation of every test.
+- **`.env.e2e.example` is the single source of truth for e2e config.** Add any new required env var there alongside `.env.example`, keep values self-consistent with `docker-compose.prod.yml`, and never read the developer's `.env` from test code. The live `.env.e2e` is gitignored — only the `.example` template is committed so secret-scanners (GitGuardian, etc.) don't flag the repo.
+- **Usernames must be ≤ 32 chars** (validator rule). The `makeUsers(prefix)` helper composes `alice_${prefix}_${timestamp}_${rand7}`; keep `prefix` ≤ 4 chars (e.g. `t132`, `r2fr`) or registration will fail the Zod check before you see the first real assertion.
+- **Compose v5 bake bug workaround lives in `ci-e2e.sh`**: the script pre-builds the `production` image with `DOCKER_BUILDKIT=0 docker build` and then `docker compose up --no-build`. Do not replace it with `docker compose up --build` without verifying v5 no longer panics in `build_bake.go` on every supported host.
 
 **Always run tests with a hard timeout and tee the output to a log file.** Test
 commands (unit, e2e, `ci-*.sh`, `playwright test`, `vitest run`, anything that
@@ -126,12 +227,29 @@ tool-call budget. The required shape is:
 timeout <seconds> <test-command> 2>&1 | tee test-artifacts/<run>.log | tail -n 5
 ```
 
-Pick a realistic timeout (e.g. `60` for unit tests, `420`–`600` for the full
-Playwright suite, `900` for `./scripts/ci-e2e.sh` including compose up/down).
+Pick a realistic timeout (e.g. `60` for unit tests, `300`–`420` for the full
+Playwright suite against the prod build, `900` for `./scripts/ci-e2e.sh`
+including the one-time `docker build` of the production image plus compose
+up/down).
 `test-artifacts/` is already gitignored and is where CI uploads logs — reuse
 it. `| tail -n 5` keeps the assistant response short; the full output stays on
 disk for follow-up reads (`Read` on the log, `rg` for failures, etc.). Never
 run a test command without `timeout` and without capturing output to a file.
+
+**Do not skip required e2e verification.** If a change affects UI flows, realtime
+behavior, Docker/Prisma-backed integration, acceptance criteria, or adds/changes
+an OpenSpec e2e task, add the relevant end-to-end coverage and run it with the
+canonical stack-backed command:
+
+```bash
+timeout <seconds> env E2E_ARGS="<target>" ./scripts/ci-e2e.sh 2>&1 | tee test-artifacts/<run>.log | tail -n 5
+```
+
+Use `E2E_ARGS` to target a single spec or grep when appropriate, but do not mark
+an e2e-related task complete or imply end-to-end verification happened unless the
+test was both added and run successfully. If e2e is blocked by environment or
+infrastructure issues, say so explicitly, keep the task unchecked, and report the
+exact blocker instead of silently skipping it.
 
 What to test (in order of priority):
 
@@ -201,7 +319,7 @@ Rules of thumb:
 - **Playwright MCP** — use for **any** interaction with the running app (manual QA, smoke tests, reproducing a bug, verifying a UI change, clicking through a flow). Always re-open the browser at the start of a session and resize to fullscreen before interacting. Use it to take screenshots / DOM snapshots to verify behavior instead of guessing from code. Do **not** use Playwright MCP for pure unit-logic tasks where no browser is needed.
 
   **Debugging a failing e2e / UI issue:** bring the stack up yourself and drive it through Playwright MCP instead of re-running `ci-e2e.sh` in a loop. Typical flow:
-  1. `docker compose up -d --build` (or `KEEP_STACK=1 ./scripts/ci-e2e.sh` if you want the suite to run once and then leave the stack up).
+  1. `KEEP_STACK=1 ./scripts/ci-e2e.sh` (runs the suite once against the prod stack and leaves it up) — preferred because it matches what tests see. Plain `docker compose up -d --build` uses the dev file (`next dev`) and is only for interactive development, not for reproducing e2e failures.
   2. `./scripts/wait-for-health.sh http://localhost:3080 120` to confirm `/api/health` is green.
   3. Drive the app via Playwright MCP against `http://localhost:3080` — log in, take snapshots, call `fetch()` via `browser_evaluate`, inspect Centrifugo presence with `docker compose exec app wget -qO- --header="Authorization: apikey …" http://centrifugo:3080/api/presence_stats`, tail logs with `docker compose logs --since=1m <svc>`.
   4. When done: `docker compose down -v --remove-orphans` (or rely on `ci-e2e.sh`'s trap).
