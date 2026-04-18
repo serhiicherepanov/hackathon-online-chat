@@ -169,6 +169,8 @@ cp .env.example .env
 over the compose internal network. The host port is controlled by
 `TRAEFIK_BIND_PORT` (default `3080`).
 
+The **`app`** service has a Docker **healthcheck** (`GET /api/health` must return **200** with DB up). **Traefik** waits for `app` to be healthy before starting, so the published port is less likely to return **502** while Next.js is still booting.
+
 | Port   | Service    | Notes                                                       |
 |--------|------------|-------------------------------------------------------------|
 | `3080` | traefik    | Single public entrypoint (override with `TRAEFIK_BIND_PORT`) |
@@ -276,7 +278,7 @@ Most contributors never need pnpm on the host — every script runs inside the
 `app` container. To run them locally anyway:
 
 ```bash
-pnpm install
+pnpm install      # runs `prisma generate` via postinstall (types for @prisma/client)
 pnpm dev          # Next.js dev server
 pnpm build        # production build
 pnpm lint         # ESLint
