@@ -15,6 +15,40 @@ This repository implements a **classic web chat**: rooms (public/private), DMs, 
 - Merge back via PR only — no direct pushes to `master` or to an active phase branch once it has downstream feature branches.
 - If you find yourself on `master` with uncommitted feature/phase work, stop and move the work to a new branch before committing.
 
+### Agents must never touch the default branch directly
+
+`master` (the repository's default branch) is **protected** and agents have
+**zero** write authority over it. This is non-negotiable and applies even
+when the tooling appears to permit it:
+
+- **Never `git push` to `master`** (neither regular push nor `--force` /
+ `--force-with-lease`). Not to fix a typo, not to land a "trivially safe"
+ revert, not ever.
+- **Never run `gh pr merge`** (nor any other merge/admin-merge command)
+ against a PR targeting `master`. Merging is a human decision. Even if
+ `gh pr merge --auto` reports success because branch protection is
+ mis-configured, that is still a policy violation — the failure is the
+ action you took, not the policy that didn't catch you.
+- **Never run `git merge` / `git rebase` / `git reset` that writes to
+ `master`**, local or remote. Local `master` should only ever move via
+ `git pull --ff-only` from `origin/master`.
+- If you realize you have just pushed to or merged into `master`, **stop**
+ and open a revert PR from a new branch. Do not try to "quickly fix" it
+ with another direct push — that compounds the mistake.
+
+The correct end-of-task flow is always the same:
+
+1. Commit work on a feature / phase / fix branch.
+2. `git push -u origin <branch>`.
+3. `gh pr create` targeting `master`.
+4. **Stop.** Report the PR URL to the user. A human reviews and merges.
+
+If the user says "merge it" or "ship it", interpret that as "open the PR
+and enable auto-merge if you have permission **and** the branch protection
+allows it". If branch protection does not gate the merge, still do not
+press the button — ask the user to confirm they want you to merge a PR
+that targets the default branch, and default to "no" on ambiguity.
+
 ## Pre-flight: typecheck and real modules
 
 Do this **before** you treat a change as done, push, or rely on CI—otherwise you can merge **broken imports** (e.g. `TS2307: Cannot find module '@/lib/…'`) when a route or script references a file that was never added, or a task checklist was ticked without the file existing on disk.
