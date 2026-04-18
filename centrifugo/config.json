@@ -1,16 +1,64 @@
 {
-  "address": "0.0.0.0",
-  "port": 3080,
-  "allowed_origins": ["http://localhost:3080"],
-  "admin": false,
-  "log_level": "info",
-  "presence": true,
-  "join_leave": true,
-  "namespaces": [
-    {
-      "name": "default",
-      "presence": true,
-      "join_leave": true
+  "log": {
+    "level": "info"
+  },
+  "http_server": {
+    "address": "0.0.0.0",
+    "port": "3080"
+  },
+  "http_api": {
+    "key": "dev-centrifugo-api-key-change-me"
+  },
+  "client": {
+    "allowed_origins": [
+      "http://localhost:3080",
+      "http://127.0.0.1:3080"
+    ],
+    "proxy": {
+      "connect": {
+        "enabled": true,
+        "endpoint": "http://app:3080/api/centrifugo/connect",
+        "timeout": "15s",
+        "http_headers": ["cookie"]
+      }
     }
-  ]
+  },
+  "channel": {
+    "proxy": {
+      "subscribe": {
+        "endpoint": "http://app:3080/api/centrifugo/subscribe",
+        "timeout": "15s",
+        "http_headers": ["cookie"]
+      }
+    },
+    "without_namespace": {
+      "subscribe_proxy_enabled": true,
+      "presence": true,
+      "allow_subscribe_for_client": true,
+      "allow_presence_for_subscriber": true
+    },
+    "namespaces": [
+      {
+        "name": "user",
+        "subscribe_proxy_enabled": true,
+        "presence": true,
+        "allow_subscribe_for_client": true,
+        "allow_presence_for_subscriber": true
+      },
+      {
+        "name": "room",
+        "subscribe_proxy_enabled": true,
+        "presence": true,
+        "allow_subscribe_for_client": true,
+        "allow_presence_for_subscriber": true
+      },
+      {
+        "name": "dm",
+        "subscribe_proxy_enabled": true,
+        "presence": true,
+        "allow_subscribe_for_client": true,
+        "allow_presence_for_subscriber": true
+      }
+    ]
+  }
 }

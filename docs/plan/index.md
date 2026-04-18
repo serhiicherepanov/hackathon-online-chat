@@ -15,7 +15,7 @@ Architecture baseline: [`AGENTS.md`](../../AGENTS.md).
 
 | Release | Theme | Status |
 |---------|-------|--------|
-| [R0 — Demo-able MVP](r0-mvp.md) | Compose, auth, rooms (public + private flag), DMs, realtime text, unread badges, online/offline presence | planned |
+| [R0 — Demo-able MVP](r0-mvp.md) | Compose, auth, rooms (public + private flag), DMs, realtime text, unread badges, online/offline presence | done |
 | [R1 — Rich Messaging](r1-rich-messaging.md) | Attachments (files + images), reply, edit, delete, multiline, emoji | planned |
 | [R2 — Social & Presence](r2-social-presence.md) | Friends, blocks with frozen DMs, AFK/multi-tab, typing indicators | planned |
 | [R3 — Moderation & Admin](r3-moderation.md) | Roles, bans, invitations, Manage Room modal, owner-only actions | planned |

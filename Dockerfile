@@ -1,6 +1,6 @@
 FROM node:20-alpine
 
-RUN apk add --no-cache libc6-compat openssl && corepack enable
+RUN apk add --no-cache libc6-compat openssl python3 make g++ && corepack enable
 
 WORKDIR /app
 

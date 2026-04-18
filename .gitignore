@@ -28,3 +28,10 @@ coverage/
 
 # playwright MCP scratch
 .playwright-mcp/
+
+# Playwright (CLI)
+playwright-report/
+test-results/
+
+# ci-e2e dumps
+test-artifacts/

@@ -5,10 +5,10 @@ personal messages, contacts/friends, file and image sharing, basic moderation,
 and persistent message history. Designed for ~300 concurrent users, ~1000
 participants per room, and multi-year message retention.
 
-> **Status:** R0 scaffold complete — `docker compose up` from repo root boots
-> Next.js, PostgreSQL, and Centrifugo with Prisma migrations applied on first
-> boot. Feature work (auth, rooms, DMs, messaging) lands in subsequent
-> changes. See [Readme maintenance rule](#readme-maintenance-rule).
+> **Status:** R0 MVP — register/sign-in, public room catalog + join, DMs by
+> username, realtime text over Centrifugo v6 (connect + subscribe proxies),
+> unread badges, basic online/offline presence. `docker compose up` from repo
+> root applies migrations on boot. See [Readme maintenance rule](#readme-maintenance-rule).
 
 ## Table of contents
 
@@ -49,7 +49,7 @@ the authoritative specification.
 |-------|--------|
 | App framework | Next.js 15+ (App Router), TypeScript |
 | UI primitives | shadcn/ui (Tailwind CSS + Radix) |
-| Realtime server | Centrifugo (WebSocket / SSE) |
+| Realtime server | Centrifugo v6 (WebSocket / SSE; HTTP API + proxies) |
 | Realtime client | centrifuge-js |
 | Database | PostgreSQL |
 | ORM | Prisma |
@@ -128,7 +128,7 @@ product. See [`docs/plan/index.md`](docs/plan/index.md).
 
 | Release | Theme |
 |---------|-------|
-| [R0 — Demo-able MVP](docs/plan/r0-mvp.md) | Compose, auth, rooms (public + private flag), DMs, realtime text, unread badges, online/offline presence · scaffold ✅ |
+| [R0 — Demo-able MVP](docs/plan/r0-mvp.md) | Compose, auth, rooms (public + private flag), DMs, realtime text, unread badges, online/offline presence · **done** |
 | [R1 — Rich Messaging](docs/plan/r1-rich-messaging.md) | Attachments (file + image), reply, edit, delete, multiline, emoji |
 | [R2 — Social & Presence](docs/plan/r2-social-presence.md) | Friends, blocks with frozen DMs, AFK/multi-tab, typing |
 | [R3 — Moderation & Admin](docs/plan/r3-moderation.md) | Roles, bans, invitations, Manage Room modal, live access revocation |
@@ -177,10 +177,12 @@ Traefik routes:
 
 Smoke checks once the stack is up:
 
-- `http://localhost:3080/` — landing page
+- `http://localhost:3080/` — landing page (links to auth + app)
+- `http://localhost:3080/sign-up` / `http://localhost:3080/sign-in` — cookie sessions
+- `http://localhost:3080/rooms` — catalog (after sign-in)
 - `http://localhost:3080/api/health` — `{"status":"ok","db":"up"}`
-- `http://localhost:3080/stack-check` — TanStack Query, Centrifugo
-  `connected` state, and a React Virtuoso list of 100 rows
+- `http://localhost:3080/stack-check` — TanStack Query + Virtuoso (Centrifugo
+  `connected` only appears inside the authenticated app shell)
 
 To access the database directly (e.g. with `psql` or Prisma Studio), exec into
 the container or add a temporary `ports:` mapping to the `db` service.
@@ -195,6 +197,17 @@ docker compose logs -f app | npx pino-pretty
 Shut down with `docker compose down`; add `-v` to wipe the Postgres and
 uploads volumes.
 
+### Resetting the database
+
+The R0 migration replaces the earlier scaffold migration. If you already ran the
+stack on this machine, reset volumes so Prisma can apply `0001_r0_init` on a
+clean cluster:
+
+```bash
+docker compose down -v
+docker compose up --build
+```
+
 ## Environment variables
 
 All variables below are documented in [`.env.example`](.env.example) with
@@ -207,7 +220,7 @@ dev-only defaults. Override by creating a local `.env`.
 | `CENTRIFUGO_API_KEY`            | Centrifugo HTTP API key for server-to-server calls  |
 | `CENTRIFUGO_URL`                | Centrifugo HTTP API URL (container network)         |
 | `NEXT_PUBLIC_CENTRIFUGO_WS_URL` | WebSocket URL used by the browser                   |
-| `SESSION_SECRET`                | Secret for session cookies (used by R0 auth change) |
+| `SESSION_SECRET`                | iron-session password (≥ 32 chars in production)    |
 | `UPLOADS_DIR`                   | Path for uploaded files (reserved for R1)           |
 | `LOG_LEVEL`                     | pino log level (default `info`)                     |
 
@@ -222,10 +235,134 @@ pnpm dev          # Next.js dev server
 pnpm build        # production build
 pnpm lint         # ESLint
 pnpm typecheck    # strict tsc --noEmit
+pnpm test         # Vitest unit tests (jsdom + React Testing Library)
+pnpm test:watch   # Vitest in watch mode
+pnpm test:e2e     # Playwright E2E (stack must be up; see e2e/global-setup)
+pnpm test:e2e:ui  # Playwright UI mode
 pnpm db:migrate   # apply committed Prisma migrations
 pnpm db:generate  # regenerate Prisma Client
 pnpm db:studio    # open Prisma Studio
 ```
+
+### End-to-end tests (Playwright)
+
+Specs live under `e2e/` and run against a real, fully-wired Compose stack — not
+a mocked app. `e2e/global-setup.ts` probes `GET /api/health` before the suite
+starts and aborts fast if the stack isn't up.
+
+**One-time setup**
+
+```bash
+pnpm install
+pnpm exec playwright install chromium          # download the browser
+# On Linux without system libs: pnpm exec playwright install --with-deps chromium
+```
+
+**Start the stack** (required every run — the app container is what serves
+`/api/health`, migrates the DB, and talks to Centrifugo):
+
+```bash
+docker compose up -d --build
+docker compose logs -f app                     # wait for "migrations applied, starting next dev"
+curl -fsS http://localhost:3080/api/health     # should print {"status":"ok","db":"up"}
+```
+
+**Run the tests**
+
+```bash
+pnpm test:e2e                 # headless, full run
+pnpm test:e2e:ui              # interactive UI mode (time-travel, watch, pick tests)
+pnpm exec playwright test --headed        # headed browser
+pnpm exec playwright test --debug         # Playwright Inspector, step-by-step
+pnpm exec playwright test e2e/r0-acceptance.spec.ts:42 --ui   # single test at a line
+pnpm exec playwright test -g "sign in" --ui                   # filter by title
+pnpm exec playwright show-report          # open last HTML report
+```
+
+Point the suite at a non-default host/port via `PLAYWRIGHT_BASE_URL`:
+
+```bash
+PLAYWRIGHT_BASE_URL=http://localhost:3080 pnpm test:e2e:ui
+```
+
+**Troubleshooting**
+
+If you see `Playwright: http://localhost:3080/api/health returned 500. Start
+the stack: docker compose up`, the stack is either not running or the `app`
+container is crashing before it can serve the route. Walk through:
+
+1. **Is the stack up?** `docker compose ps` — every service (`db`, `centrifugo`,
+   `app`, `traefik`) should be `running` / `healthy`.
+2. **Did migrations succeed?** `docker compose logs app | tail -n 50`. Look for
+   `migrations applied, starting next dev`. If `prisma migrate deploy` failed
+   three times, the container exited and Traefik will return 5xx. Fix the
+   migration (or reset data with `docker compose down -v` for a clean slate)
+   and `docker compose up -d --build` again.
+3. **Is the DB reachable?** `docker compose exec db pg_isready -U chat -d chat`
+   should print `accepting connections`.
+4. **Health probe directly against the app** (bypasses Traefik):
+   `docker compose exec app wget -qO- http://localhost:3080/api/health`.
+5. **Port conflict?** `TRAEFIK_BIND_PORT=3081 docker compose up -d` and rerun
+   with `PLAYWRIGHT_BASE_URL=http://localhost:3081 pnpm test:e2e`.
+6. **Stale build after deps changed?** `docker compose build --no-cache app`
+   then `docker compose up -d`.
+
+Run the tests from the **host** (not inside the `app` container) — Playwright
+drives a browser that connects to the host-published `3080` port.
+
+### CI scripts
+
+Two shell scripts under `scripts/` package the pipelines so CI and local
+reproductions stay identical:
+
+| Script                        | What it does                                                                                  |
+| ----------------------------- | --------------------------------------------------------------------------------------------- |
+| `scripts/ci-unit.sh`          | Preflights `pnpm`/`node`/`node_modules`, then runs `pnpm lint` → `pnpm typecheck` → `pnpm test` (Vitest). |
+| `scripts/ci-e2e.sh`           | Preflights tooling + browser cache, `docker compose up -d --build`, waits for `/api/health`, runs Playwright, then **always** dumps per-service Compose logs and `playwright-report/` to `test-artifacts/` and tears the stack down. |
+| `scripts/wait-for-health.sh`  | Helper: polls `$1/api/health` until 200 or timeout (used by `ci-e2e.sh`).                     |
+
+The scripts **never install anything**. If a prerequisite is missing they exit
+with code `2` and print the exact command you need to run. Expected host
+state before invocation:
+
+```bash
+pnpm install --frozen-lockfile
+pnpm exec playwright install chromium       # add --with-deps on Linux (once)
+```
+
+Local use is identical to CI:
+
+```bash
+./scripts/ci-unit.sh
+./scripts/ci-e2e.sh
+
+TRAEFIK_BIND_PORT=3081 ./scripts/ci-e2e.sh          # avoid a port conflict
+KEEP_STACK=1 ./scripts/ci-e2e.sh                    # leave Compose up for debugging
+HEALTH_TIMEOUT=300 ./scripts/ci-e2e.sh              # slower machines
+
+HEADED=1 ./scripts/ci-e2e.sh                        # visible browser
+UI=1 ./scripts/ci-e2e.sh                            # Playwright UI mode
+DEBUG=1 ./scripts/ci-e2e.sh                         # Playwright Inspector
+HEADED=1 SLOWMO_MS=250 ./scripts/ci-e2e.sh          # slow each action down
+E2E_ARGS='-g "sign in" --project=chromium' HEADED=1 ./scripts/ci-e2e.sh
+xvfb-run -a ./scripts/ci-e2e.sh                     # headed on a headless box
+```
+
+`HEADED`, `UI`, and `DEBUG` all require a display server (X11 or Wayland). The
+script aborts with a clear message if none is available — either run from a
+desktop session or prefix with `xvfb-run -a`. These modes are for **local
+debugging**; the GitHub Actions workflow always runs fully headless.
+
+GitHub Actions is wired up in `.github/workflows/ci.yml` with two jobs:
+
+- **unit** — runs `scripts/ci-unit.sh` on `ubuntu-latest`.
+- **e2e** — runs `scripts/ci-e2e.sh` after `unit` passes, then uploads the
+  `test-artifacts/` directory (Compose logs + Playwright HTML report + traces)
+  as a workflow artifact so failures are debuggable without re-running.
+
+Both jobs use `pnpm/action-setup` + Node 20 with pnpm store caching. The e2e
+job runs Docker-in-runner (no service containers) because the repo's
+`docker-compose.yml` is the authoritative runtime per the submission rules.
 
 To author a new migration, shell into the running `app` container (no ports
 are published for `db`, so authoring from the host isn't possible without

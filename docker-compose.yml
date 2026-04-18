@@ -33,7 +33,7 @@ services:
       retries: 20
 
   centrifugo:
-    image: centrifugo/centrifugo:v5
+    image: centrifugo/centrifugo:v6
     command: centrifugo -c /centrifugo/config.json
     volumes:
       - ./centrifugo/config.json:/centrifugo/config.json:ro
@@ -66,7 +66,7 @@ services:
       CENTRIFUGO_API_KEY: "${CENTRIFUGO_API_KEY:-dev-centrifugo-api-key-change-me}"
       CENTRIFUGO_URL: "${CENTRIFUGO_URL:-http://centrifugo:3080}"
       NEXT_PUBLIC_CENTRIFUGO_WS_URL: "${NEXT_PUBLIC_CENTRIFUGO_WS_URL:-ws://localhost:${TRAEFIK_BIND_PORT:-3080}/connection/websocket}"
-      SESSION_SECRET: "${SESSION_SECRET:-dev-session-secret-change-me}"
+      SESSION_SECRET: "${SESSION_SECRET:-dev-session-secret-change-me-32chars!!}"
       UPLOADS_DIR: "${UPLOADS_DIR:-/app/uploads}"
       LOG_LEVEL: "${LOG_LEVEL:-info}"
       NODE_ENV: "development"

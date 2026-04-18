@@ -1,7 +1,8 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  typedRoutes: true,
+  // Dynamic redirects (e.g. `?next=/rooms/...`) are incompatible with strict route typing.
+  typedRoutes: false,
 };
 
 export default nextConfig;

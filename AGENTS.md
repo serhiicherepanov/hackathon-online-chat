@@ -12,7 +12,13 @@ These are non-negotiable constraints agents must respect; details live in linked
 
 - **~300 simultaneous users**; a single room **up to 1000 participants**; a user may join **unlimited** rooms (sizing hint: ~20 rooms, ~50 contacts).
 - After send, messages should reach recipients **within 3 seconds**; presence updates **under 2 seconds**.
-- UI must stay usable with **very large history** (spec calls out **at least 10,000 messages** in a room)—use pagination/virtualization accordingly.
+- UI must stay usable with **very large history** (spec calls out **at least 10,000 messages** in a room, and long-lived rooms can reach **~100,000 messages**)—use pagination + Virtuoso, support **progressive scroll-up to the earliest message**, and cover this path with an automated test.
+
+**Transport & presence design caveats**
+
+- Do **not** fan out live messages via REST polling — with rooms of 100+ users that collapses. Use Centrifugo (WebSocket) for live delivery, typing, and presence.
+- Do **not** push *everything* over WebSockets either — history pages, auth, CRUD, and uploads stay on REST / Server Actions. The expected shape is **REST for request/response + WebSocket for live updates**.
+- Presence/activity is driven by a client **heartbeat** emitted only while the user is genuinely interacting (mouse move / key / touch within the last 1–2 s). The server infers **AFK / offline from the *absence* of heartbeats** — browsers hibernate inactive tabs and stop JS, so the client cannot be trusted to send an "I went away" signal.
 
 **Persistence & history**
 
@@ -79,6 +85,61 @@ These are non-negotiable constraints agents must respect; details live in linked
 
   Boundary UIs must show a short human message, a **Retry** action that resets the boundary (and refetches queries where relevant), and log via a single `reportError(err, context)` helper. Keep boundaries **scoped** — don't wrap the entire app in one giant boundary; the sidebar, active room, and composer should fail independently. Server Components and Server Actions use Next.js error files / `try/catch` instead, not React boundaries.
 
+## Testing
+
+The repo uses **Vitest** + **React Testing Library** + **jsdom** for unit tests. Tests are **colocated** next to the code they cover (`foo.ts` ↔ `foo.test.ts`, `Button.tsx` ↔ `Button.test.tsx`). No separate `__tests__/` tree.
+
+Scripts:
+
+- `pnpm test` — run the full Vitest suite once (CI-friendly).
+- `pnpm test:watch` — watch mode while developing.
+- `./scripts/ci-e2e.sh` — full end-to-end pipeline: preflights the environment, brings up the Compose stack with `docker compose up -d --build`, waits for `/api/health`, runs Playwright, and tears the stack down while dumping logs to `test-artifacts/`. **This is the canonical way to run e2e locally** — do not invoke `pnpm exec playwright test` directly against a half-wired stack. Useful env knobs: `KEEP_STACK=1` (leave the stack running for debugging), `HEADED=1` / `DEBUG=1` / `UI=1` (require a DISPLAY), `E2E_ARGS="-g '13.2'"` (forward args to Playwright, e.g. to run a single test).
+
+What to test (in order of priority):
+
+1. **Pure logic** — Zod schemas in `lib/validation/`, helpers in `lib/utils.ts`, presence/transition reducers in `lib/presence/`, access-check helpers in `lib/conversations/`. These are fast, deterministic, and catch most regressions.
+2. **Zustand stores** (`lib/stores/*`) — exercise them by calling `store.getState().action(...)` and asserting `store.getState()`. Reset with `store.setState({...initial})` in `beforeEach` so tests don't leak state.
+3. **React components** — render with `@testing-library/react`, interact with `@testing-library/user-event`, query by **role/name** (not class names or test-ids) whenever possible. Focus on behavior reachable to the user: labels, enabled/disabled, what fires on click, what renders when props change.
+
+What **not** to test here:
+
+- Next.js **route handlers**, **Server Actions**, and anything that reaches Prisma, Centrifugo, or the filesystem — those are integration/e2e concerns, not unit tests. Don't stub Prisma just to assert SQL; prefer end-to-end smoke tests via Playwright MCP against the running Compose stack.
+- Full page renders that require the App Router, `cookies()`, `headers()`, or real network. Break the unit out (pure function or small client component) and test that instead.
+- Snapshot tests of large component trees — they rot fast and don't encode intent.
+
+Conventions:
+
+- Use `vi.fn()` for spies; never mock a module you also want to import real.
+- Components that rely on `centrifuge-js`, `next/navigation`, or TanStack Query should accept their dependencies as props or through a provider you can swap in tests, rather than importing singletons at module scope.
+- Keep each test file focused on one unit; if setup grows past ~15 lines, the unit is probably doing too much.
+- Any change that adds new pure logic or a new reusable component **must** ship with tests in the same change.
+
+## Shell scripts
+
+Every `*.sh` in this repo (under `scripts/`, `docker/`, or anywhere else) must
+pass **ShellCheck** cleanly — no warnings, no errors, no blanket disables.
+
+Conventions for shell scripts:
+
+- Start every script with `#!/usr/bin/env bash` and `set -euo pipefail`.
+- Lint before committing: `shellcheck scripts/*.sh docker/*.sh` (install via
+  `apt install shellcheck`, `brew install shellcheck`, or your distro's
+  equivalent).
+- If ShellCheck flags something that's genuinely a false positive, add a
+  narrowly-scoped `# shellcheck disable=SCxxxx` directly above the offending
+  line with a one-line comment explaining why. Never disable rules at the
+  file level and never disable `SC2086` (unquoted variables) globally.
+- CI runs shell scripts on Ubuntu with `bash`; don't rely on zsh/fish
+  extensions or macOS-only flags. Prefer POSIX-portable idioms where
+  possible, but `bash`-only features (arrays, `[[ ... ]]`) are fine because
+  the shebang pins bash.
+- Scripts invoked from CI (`scripts/ci-*.sh`) must exit non-zero on the first
+  real failure — never silence errors with `|| true` except in cleanup/trap
+  paths where the failure is expected and logged.
+
+When adding a new script, run `shellcheck` locally and fix every finding
+before opening a PR.
+
 ## Keep `README.md` in sync with reality
 
 [`README.md`](README.md) is a **living document** and must always reflect the **actual** state of the repo, not the planned state. Any change that alters how a contributor sets up, configures, or runs the app **must update `README.md` in the same change**. Concrete triggers:
@@ -100,6 +161,14 @@ Rules of thumb:
 
 - **Context7** — use for **any** library/framework/SDK/CLI question (Next.js, Prisma, Centrifugo, centrifuge-js, shadcn/ui, TanStack Query, Zustand, React Virtuoso, Tailwind, Docker Compose, etc.) to fetch **current** docs and implementation examples before writing code. Prefer it over web search and over relying on training memory, even for well-known libraries — APIs drift between versions. Use it for: API syntax, config options, version migrations, setup/wiring patterns, and library-specific debugging.
 - **Playwright MCP** — use for **any** interaction with the running app (manual QA, smoke tests, reproducing a bug, verifying a UI change, clicking through a flow). Always re-open the browser at the start of a session and resize to fullscreen before interacting. Use it to take screenshots / DOM snapshots to verify behavior instead of guessing from code. Do **not** use Playwright MCP for pure unit-logic tasks where no browser is needed.
+
+  **Debugging a failing e2e / UI issue:** bring the stack up yourself and drive it through Playwright MCP instead of re-running `ci-e2e.sh` in a loop. Typical flow:
+  1. `docker compose up -d --build` (or `KEEP_STACK=1 ./scripts/ci-e2e.sh` if you want the suite to run once and then leave the stack up).
+  2. `./scripts/wait-for-health.sh http://localhost:3080 120` to confirm `/api/health` is green.
+  3. Drive the app via Playwright MCP against `http://localhost:3080` — log in, take snapshots, call `fetch()` via `browser_evaluate`, inspect Centrifugo presence with `docker compose exec app wget -qO- --header="Authorization: apikey …" http://centrifugo:3080/api/presence_stats`, tail logs with `docker compose logs --since=1m <svc>`.
+  4. When done: `docker compose down -v --remove-orphans` (or rely on `ci-e2e.sh`'s trap).
+
+  This is strictly for interactive debugging. The authoritative pass/fail signal is still `./scripts/ci-e2e.sh` — always re-run it once after a fix to confirm the suite is green end-to-end.
 
 ## What to avoid
 

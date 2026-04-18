@@ -1,6 +1,6 @@
-import { NextResponse } from "next/server";
 import { SignJWT } from "jose";
-import { randomBytes } from "node:crypto";
+import { NextResponse } from "next/server";
+import { requireSessionUser } from "@/lib/auth/session";
 import { logger } from "@/lib/logger";
 
 export const runtime = "nodejs";
@@ -14,7 +14,13 @@ function getSecret(): Uint8Array | null {
   return new TextEncoder().encode(secret);
 }
 
-export async function POST() {
+function isConnectProxyBody(v: unknown): boolean {
+  if (typeof v !== "object" || v === null) return false;
+  const obj = v as Record<string, unknown>;
+  return "client" in obj || "transport" in obj;
+}
+
+export async function POST(req: Request) {
   const secret = getSecret();
   if (!secret) {
     logger.error("CENTRIFUGO_TOKEN_HMAC_SECRET is not set");
@@ -24,18 +30,40 @@ export async function POST() {
     );
   }
 
-  let sub: string;
-  if (process.env.NODE_ENV === "production") {
-    // TODO(R0-auth): replace with real session lookup once auth lands.
-    return NextResponse.json({ error: "unauthorized" }, { status: 401 });
-  } else {
-    sub = `dev-${randomBytes(4).toString("hex")}`;
+  let body: unknown = null;
+  try {
+    body = await req.json();
+  } catch {
+    body = null;
   }
+
+  const proxyMode = isConnectProxyBody(body);
+
+  if (proxyMode) {
+    const gate = await requireSessionUser();
+    if (!gate.ok) {
+      return NextResponse.json(
+        {
+          error: {
+            code: 401,
+            message: "unauthorized",
+            temporary: false,
+          },
+        },
+        { status: 200 },
+      );
+    }
+
+    return NextResponse.json({ result: { user: gate.user.id } });
+  }
+
+  const gate = await requireSessionUser();
+  if (!gate.ok) return gate.response;
 
   const now = Math.floor(Date.now() / 1000);
   const builder = new SignJWT({})
     .setProtectedHeader({ alg: "HS256", typ: "JWT" })
-    .setSubject(sub)
+    .setSubject(gate.user.id)
     .setIssuedAt(now)
     .setExpirationTime(now + TOKEN_TTL_SECONDS);
 

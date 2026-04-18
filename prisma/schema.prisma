@@ -1,5 +1,4 @@
-// Prisma schema for the online chat hackathon project.
-// The only model for R0-scaffold is `User` — feature models are added by later changes.
+// Prisma schema — R0 chat (users, sessions, rooms, DMs, messages, reads).
 
 generator client {
   provider = "prisma-client-js"
@@ -10,10 +9,115 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+enum ConversationType {
+  room
+  dm
+}
+
+enum RoomVisibility {
+  public
+  private
+}
+
+enum RoomMemberRole {
+  owner
+  member
+}
+
 model User {
   id           String   @id @default(cuid())
   email        String   @unique
   username     String   @unique
   passwordHash String
   createdAt    DateTime @default(now())
+
+  sessions       Session[]
+  roomMembers    RoomMember[]
+  dmParticipants DmParticipant[]
+  messages       Message[]
+  messageReads   MessageRead[]
+}
+
+model Session {
+  id         String   @id @default(cuid())
+  userId     String
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tokenHash  String   @unique
+  userAgent  String?
+  ip         String?
+  lastSeenAt DateTime @default(now())
+  createdAt  DateTime @default(now())
+
+  @@index([userId])
+}
+
+model Conversation {
+  id        String           @id @default(cuid())
+  type      ConversationType
+  dmKey     String?          @unique
+  createdAt DateTime         @default(now())
+
+  room           Room?
+  messages       Message[]
+  messageReads   MessageRead[]
+  dmParticipants DmParticipant[]
+}
+
+model Room {
+  id             String         @id @default(cuid())
+  conversationId String         @unique
+  conversation   Conversation   @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  name           String         @unique
+  description    String?
+  visibility     RoomVisibility @default(public)
+
+  members RoomMember[]
+}
+
+model RoomMember {
+  id       String         @id @default(cuid())
+  roomId   String
+  room     Room           @relation(fields: [roomId], references: [id], onDelete: Cascade)
+  userId   String
+  user     User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role     RoomMemberRole @default(member)
+  joinedAt DateTime       @default(now())
+
+  @@unique([roomId, userId])
+  @@index([userId])
+}
+
+model DmParticipant {
+  id             String       @id @default(cuid())
+  conversationId String
+  conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  userId         String
+  user           User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  joinedAt       DateTime     @default(now())
+
+  @@unique([conversationId, userId])
+  @@index([userId])
+}
+
+model Message {
+  id             String       @id
+  conversationId String
+  conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  authorId       String
+  author         User         @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  body           String
+  createdAt      DateTime     @default(now())
+
+  @@index([conversationId, createdAt(sort: Desc), id(sort: Desc)])
+}
+
+model MessageRead {
+  conversationId    String
+  conversation      Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  userId            String
+  user              User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  lastReadMessageId String
+
+  @@id([conversationId, userId])
+  @@index([userId])
 }
