@@ -8,14 +8,23 @@ import {
   hasActiveBlockBetween,
   sortUserPair,
 } from "@/lib/social/relationships";
+import { resolveUserByIdentifier } from "@/lib/social/resolve-identifier";
 import { serializeFriendRequestEvent } from "@/lib/social/serialize";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-const postBody = z.object({
-  userId: z.string().min(1),
-});
+// `userId` is accepted as a legacy alias for `identifier` (see
+// add-contacts-search-dm design §3). Both branches go through
+// `resolveUserByIdentifier` and share the same error shapes.
+const postBody = z
+  .object({
+    identifier: z.string().min(1).optional(),
+    userId: z.string().min(1).optional(),
+  })
+  .refine((v) => Boolean(v.identifier ?? v.userId), {
+    message: "identifier_required",
+  });
 
 export async function POST(req: Request) {
   const gate = await requireSessionUser();
@@ -33,17 +42,14 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "validation_error" }, { status: 400 });
   }
 
-  const targetUserId = parsed.data.userId;
-  if (targetUserId === gate.user.id) {
-    return NextResponse.json({ error: "self_request" }, { status: 400 });
-  }
-
-  const target = await prisma.user.findUnique({
-    where: { id: targetUserId },
-    select: { id: true, username: true },
-  });
-  if (!target) {
+  const identifier = (parsed.data.identifier ?? parsed.data.userId ?? "").trim();
+  const resolved = await resolveUserByIdentifier(prisma, identifier);
+  if ("error" in resolved) {
     return NextResponse.json({ error: "user_not_found" }, { status: 404 });
+  }
+  const target = resolved.user;
+  if (target.id === gate.user.id) {
+    return NextResponse.json({ error: "self_request" }, { status: 400 });
   }
 
   if (await hasActiveBlockBetween(prisma, gate.user.id, target.id)) {

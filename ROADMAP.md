@@ -12,7 +12,7 @@ Legend: `[x]` done · `[~]` in progress · `[ ]` not started · `[-]` deferred/s
 |---------|-------|--------|
 | [R0 — Demo-able MVP](docs/plan/r0-mvp.md) | Compose, auth, rooms, DMs, realtime text, unread, presence | **done** |
 | [R1 — Rich Messaging](docs/plan/r1-rich-messaging.md) | Attachments, reply, edit, delete, multiline, emoji | **done** |
-| [R2 — Social & Presence](docs/plan/r2-social-presence.md) | Friends, blocks, AFK/multi-tab, typing | not started |
+| [R2 — Social & Presence](docs/plan/r2-social-presence.md) | Friends, blocks, AFK/multi-tab, typing | **done** |
 | [R3 — Moderation & Admin](docs/plan/r3-moderation.md) | Roles, bans, invitations, Manage Room | not started |
 | [R4 — Polish & Submission](docs/plan/r4-polish-scale.md) | Password reset, account delete, sessions UI, 10k-msg perf, 300-client load test | not started |
 | [R5 — Advanced (stretch)](docs/plan/r5-advanced.md) | Multi-node Centrifugo + Redis, bot API, admin dashboards | stretch |
@@ -51,13 +51,14 @@ Legend: `[x]` done · `[~]` in progress · `[ ]` not started · `[-]` deferred/s
 
 ## R2 — Social & Presence
 
-- [ ] Friends: request / accept / reject / remove
-- [ ] DM gating: PM only between friends with no active block
-- [ ] Blocks with frozen DM history (read-only after block)
-- [ ] Typing indicators on rooms and DMs
-- [ ] Heartbeat-driven AFK (1 min idle across all tabs) — multi-tab aware
-- [ ] Presence state machine: online / AFK / offline, surfaced in members list + DM contacts
-- [ ] R2 demo script passes end-to-end
+- [x] Friends: request / accept / reject / remove (`GET/POST /api/friends*`, `DELETE /api/friends/:userId`)
+- [x] DM gating: new `POST /api/dm/:username` requires accepted friendship + no active block; grandfathered DMs still reused
+- [x] Blocks with frozen DM history: `POST/DELETE /api/blocks*`, `dm.frozen` event, read-only composer + banner
+- [x] Typing indicators on rooms and DMs (throttled publish, 3 s local expiry, suppressed on empty composer / frozen DM)
+- [x] Heartbeat-driven AFK (1 min idle across all tabs) — multi-tab aware via `lastActiveAt` + Centrifugo connection count
+- [x] Presence state machine: online / AFK / offline, surfaced in members list, DM contacts, and `/contacts` page
+- [x] Contacts screen at `/contacts` with accepted friends, inbound/outbound requests, and blocked users
+- [x] R2 demo script passes end-to-end (e2e/r2-acceptance.spec.ts)
 
 ## R3 — Moderation & Admin
 
