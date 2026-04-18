@@ -1,0 +1,16 @@
+# 5. Notes and Clarifications
+- Email and username are unique.
+- Username is immutable.
+- Room names are unique.
+- Public rooms are discoverable through the public catalog and may be joined by any authenticated user unless banned.
+- Private rooms are available only by invitation.
+- Personal dialogs are functionally equivalent to chats, but have exactly two participants.
+- Existing personal message history remains visible but frozen after a user-to-user ban.
+- If a room is deleted, all its messages and attachments are deleted permanently.
+- If a user loses access to a room, they lose access to its messages, files, and images.
+- Files persist after upload unless the room is deleted, even if the original uploader later loses access.
+- The application should resemble a classic web chat rather than a modern social network or collaboration suite.
+- A user is considered offline only when they have no open browser tabs with the application.
+- If a user has multiple tabs open, presence is determined by the most active tab: online if any tab is active, AFK only if all tabs have been idle for more than 1 minute.
+- Sign out logs out the current browser session only. Other active sessions (other browsers or devices) remain valid.
+- Messages sent to offline users are persisted and displayed when the recipient next connects.
