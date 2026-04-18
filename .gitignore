@@ -11,8 +11,8 @@ next-env.d.ts
 prisma/*.db
 prisma/*.db-journal
 
-# uploads
-uploads/
+# uploads (runtime volume at repo root only — do not use bare `uploads/`, it ignores `lib/uploads/`)
+/uploads/
 
 # env
 .env
