@@ -144,6 +144,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
               <Separator orientation="vertical" className="h-6" />
               <span className="text-sm text-muted-foreground">
                 {user.username}
+                <span className="ml-2 text-xs opacity-70">#{user.id}</span>
               </span>
             </div>
 

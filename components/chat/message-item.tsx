@@ -127,7 +127,7 @@ export function MessageItem({
 
   return (
     <div
-      className="px-4 py-2"
+      className="px-4 py-2 transition-colors hover:bg-accent/40"
       data-testid="message-item"
       data-message-id={message.id}
     >

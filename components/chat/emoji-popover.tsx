@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   Popover,
   PopoverContent,
@@ -13,20 +13,17 @@ type Props = { onPick: (emoji: string) => void };
 
 export function EmojiPopover({ onPick }: Props) {
   const hostRef = useRef<HTMLDivElement | null>(null);
+  const [open, setOpen] = useState(false);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
-    // lazy import so SSR is happy
     void import("emoji-picker-element");
   }, []);
 
   useEffect(() => {
+    if (!open) return;
     const host = hostRef.current;
     if (!host) return;
-    const picker = host.querySelector("emoji-picker") as
-      | (HTMLElement & { addEventListener: HTMLElement["addEventListener"] })
-      | null;
-    if (!picker) return;
     const handler = (e: Event) => {
       const detail = (e as CustomEvent).detail as {
         unicode?: string;
@@ -35,13 +32,13 @@ export function EmojiPopover({ onPick }: Props) {
       const u = detail?.unicode ?? detail?.emoji?.unicode;
       if (u) onPick(u);
     };
-    picker.addEventListener("emoji-click", handler as EventListener);
+    host.addEventListener("emoji-click", handler as EventListener);
     return () =>
-      picker.removeEventListener("emoji-click", handler as EventListener);
-  }, [onPick]);
+      host.removeEventListener("emoji-click", handler as EventListener);
+  }, [onPick, open]);
 
   return (
-    <Popover>
+    <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
         <Button
           type="button"
