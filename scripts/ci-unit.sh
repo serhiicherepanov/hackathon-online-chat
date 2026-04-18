@@ -8,6 +8,7 @@
 # Prerequisites:
 #   - pnpm, node on PATH
 #   - ./node_modules present  ->  `pnpm install --frozen-lockfile`
+#     (postinstall runs `prisma generate`; this script also runs it before typecheck)
 set -euo pipefail
 
 cd "$(dirname "$0")/.."
@@ -27,6 +28,9 @@ command -v node >/dev/null 2>&1 || die "\`node\` is not on PATH" \
   "pnpm install --frozen-lockfile"
 
 echo "    pnpm $(pnpm --version)  node $(node --version)"
+
+echo "==> prisma generate (types for @prisma/client; no DB required)"
+pnpm exec prisma generate
 
 echo "==> pnpm lint"
 pnpm lint

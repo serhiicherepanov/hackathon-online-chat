@@ -15,6 +15,15 @@ This repository implements a **classic web chat**: rooms (public/private), DMs, 
 - Merge back via PR only — no direct pushes to `master` or to an active phase branch once it has downstream feature branches.
 - If you find yourself on `master` with uncommitted feature/phase work, stop and move the work to a new branch before committing.
 
+## Pre-flight: typecheck and real modules
+
+Do this **before** you treat a change as done, push, or rely on CI—otherwise you can merge **broken imports** (e.g. `TS2307: Cannot find module '@/lib/…'`) when a route or script references a file that was never added, or a task checklist was ticked without the file existing on disk.
+
+- **Run `pnpm typecheck`** (`tsc --noEmit`). It catches missing modules, missing exports, and many bad call signatures in one pass. Prefer running it after any edit that adds imports or new files.
+- **Imports must resolve in the repo**: every new `@/…` path or relative import must point to a file that exists in the **same branch/commit** as the caller. Do not wire `app/api/…`, `scripts/*.ts`, or tests to a module that only appears in OpenSpec/tasks or narrative docs.
+- If you add a **shared helper** (`lib/…`), add the **`.ts` file in the same change** as the first import—never leave consumers pointing at a path you “will add next.”
+- When you touch **pure logic** or new components, also run **`pnpm test`** (see Testing below); CI runs typecheck + unit tests together.
+
 ## Critical rules (from requirements)
 
 These are non-negotiable constraints agents must respect; details live in linked docs.

@@ -27,7 +27,7 @@ services:
       - /var/run/docker.sock:/var/run/docker.sock:ro
     depends_on:
       app:
-        condition: service_started
+        condition: service_healthy
       centrifugo:
         condition: service_started
 
@@ -101,6 +101,18 @@ services:
       - "traefik.http.routers.app.entrypoints=web"
       - "traefik.http.routers.app.priority=1"
       - "traefik.http.services.app.loadbalancer.server.port=3080"
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "node",
+          "-e",
+          "fetch('http://127.0.0.1:3080/api/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))",
+        ]
+      interval: 5s
+      timeout: 10s
+      retries: 12
+      start_period: 90s
 
 volumes:
   pgdata:
