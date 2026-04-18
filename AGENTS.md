@@ -4,6 +4,17 @@ This repository implements a **classic web chat**: rooms (public/private), DMs, 
 
 **Runtime:** **Docker Compose** orchestrates **all** services (e.g. Next.js app, PostgreSQL, Centrifugo, and any supporting containers). Local development and submission both assume **`docker compose up`** from the repo root—not a mix of bare-metal DB and containerized app.
 
+## Branching policy
+
+**Every feature and every release/phase (R0, R1, …) must be developed on its own dedicated branch off `master`** — never commit feature or phase work directly to `master`.
+
+- Phase branches: `release/r<N>-<short-slug>` (e.g. `release/r1-rich-messaging`).
+- Feature branches: `feature/<short-slug>` (e.g. `feature/emoji-picker`), branched from the active phase branch when the feature belongs to a phase, otherwise from `master`.
+- Bugfix branches: `fix/<short-slug>`.
+- One logical change per branch; keep branches short-lived and rebase on the parent branch before opening a PR.
+- Merge back via PR only — no direct pushes to `master` or to an active phase branch once it has downstream feature branches.
+- If you find yourself on `master` with uncommitted feature/phase work, stop and move the work to a new branch before committing.
+
 ## Critical rules (from requirements)
 
 These are non-negotiable constraints agents must respect; details live in linked docs.
@@ -76,6 +87,7 @@ These are non-negotiable constraints agents must respect; details live in linked
 - **shadcn/ui**: compose primitives; keep tokens in Tailwind theme, avoid one-off inline styles for the same patterns.
 - **Environment**: document required vars (e.g. `DATABASE_URL`, Centrifugo HTTP API / WebSocket URLs, tokens) in `.env.example` when adding features—never commit secrets.
 - **Docker Compose**: Define **every** runtime dependency in Compose (app, DB, Centrifugo, volumes for Postgres data and **local file uploads** per spec). Root `docker compose up` must yield a runnable stack per submission rules; service names, ports, and internal URLs must match **Prisma** (`DATABASE_URL`), **Next.js**, and **centrifuge-js** connection settings (use `.env.example`; document hostnames for inter-container networking).
+- **Two compose files, kept in sync**: the repo ships **two self-contained** compose files — `docker-compose.yml` (development default: `next dev` + HMR + source bind-mount, `development` Dockerfile target) and `docker-compose.prod.yml` (production: `production` Dockerfile target built with `NEXT_PUBLIC_*` as build `ARG`s, no source mount, `NODE_ENV=production`). They are **separate files, not overlays** — each one must be runnable on its own with a single `-f`, because some deployment environments (and the hackathon submission flow) only accept a single compose file at a time. This means any service-level change (new service, changed port, new env var, new healthcheck, new Traefik label, new volume, service-name rename, dependency order) **must be applied to both files in the same commit**. Drift between the two is a bug: dev passes, prod silently breaks (or vice versa). Things that legitimately differ between the two — and must stay different — are: `build.target`, `build.args` for `NEXT_PUBLIC_*`, the `app` service's `volumes:` (source mount + dev caches in dev only), `NODE_ENV`, file-watcher polling env vars, and the use of `${VAR:?...}` on secrets in prod (fail fast on missing config) vs. dev-friendly defaults in dev. When adding a service, use the dev file as the source of truth, then port the service block into the prod file adjusting only those allowed-to-differ knobs.
 - **Error boundaries**: wrap risky client subtrees with React error boundaries so a single failure never blanks the whole chat. Use Next.js App Router `error.tsx` files at route segments (app root, `(chat)/layout`, per-room view, settings) and component-level boundaries (e.g. `react-error-boundary`) around:
   - the **Centrifugo-connected** realtime provider (connection/subscription failures must not crash the shell),
   - the **Virtuoso message list** and message renderers (bad payloads, missing attachments, markdown/emoji render errors),
@@ -94,6 +106,23 @@ Scripts:
 - `pnpm test` — run the full Vitest suite once (CI-friendly).
 - `pnpm test:watch` — watch mode while developing.
 - `./scripts/ci-e2e.sh` — full end-to-end pipeline: preflights the environment, brings up the Compose stack with `docker compose up -d --build`, waits for `/api/health`, runs Playwright, and tears the stack down while dumping logs to `test-artifacts/`. **This is the canonical way to run e2e locally** — do not invoke `pnpm exec playwright test` directly against a half-wired stack. Useful env knobs: `KEEP_STACK=1` (leave the stack running for debugging), `HEADED=1` / `DEBUG=1` / `UI=1` (require a DISPLAY), `E2E_ARGS="-g '13.2'"` (forward args to Playwright, e.g. to run a single test).
+
+**Always run tests with a hard timeout and tee the output to a log file.** Test
+commands (unit, e2e, `ci-*.sh`, `playwright test`, `vitest run`, anything that
+exercises the stack) can hang on a bad stack, a stuck browser, or a frozen
+Next.js dev server. A runaway command blocks the whole agent loop and wastes
+tool-call budget. The required shape is:
+
+```bash
+timeout <seconds> <test-command> 2>&1 | tee test-artifacts/<run>.log | tail -n 5
+```
+
+Pick a realistic timeout (e.g. `60` for unit tests, `420`–`600` for the full
+Playwright suite, `900` for `./scripts/ci-e2e.sh` including compose up/down).
+`test-artifacts/` is already gitignored and is where CI uploads logs — reuse
+it. `| tail -n 5` keeps the assistant response short; the full output stays on
+disk for follow-up reads (`Read` on the log, `rg` for failures, etc.). Never
+run a test command without `timeout` and without capturing output to a file.
 
 What to test (in order of priority):
 

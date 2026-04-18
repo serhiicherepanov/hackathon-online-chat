@@ -5,10 +5,18 @@ personal messages, contacts/friends, file and image sharing, basic moderation,
 and persistent message history. Designed for ~300 concurrent users, ~1000
 participants per room, and multi-year message retention.
 
-> **Status:** R0 MVP — register/sign-in, public room catalog + join, DMs by
-> username, realtime text over Centrifugo v6 (connect + subscribe proxies),
-> unread badges, basic online/offline presence. `docker compose up` from repo
-> root applies migrations on boot. See [Readme maintenance rule](#readme-maintenance-rule).
+> **Status:** R1 in progress — R0 MVP (auth, rooms, DMs, realtime text,
+> unread badges, presence) shipped; R1 adds rich messaging: attachments
+> (file + image) with membership-gated downloads, reply/quote, edit + soft
+> delete with live `message.updated` / `message.deleted` events, multiline
+> composer with emoji popover, paste-to-upload, and reply banner. R2–R4 not
+> started; R5 is stretch. See the full [Roadmap](ROADMAP.md). `docker compose up`
+> from repo root applies migrations on boot.
+>
+> **AI-only build:** This project is authored entirely by AI coding agents
+> with **zero manual code changes**. Every commit, file, migration, test, and
+> doc line was produced by agents driving the repo through the OpenSpec
+> workflow — no human keystrokes have touched the source tree.
 
 ## Table of contents
 
@@ -126,14 +134,14 @@ Architecture and boundaries are detailed in [`AGENTS.md`](AGENTS.md).
 Hackathon-priority ordering — each release is a self-contained, demo-able
 product. See [`docs/plan/index.md`](docs/plan/index.md).
 
-| Release | Theme |
-|---------|-------|
-| [R0 — Demo-able MVP](docs/plan/r0-mvp.md) | Compose, auth, rooms (public + private flag), DMs, realtime text, unread badges, online/offline presence · **done** |
-| [R1 — Rich Messaging](docs/plan/r1-rich-messaging.md) | Attachments (file + image), reply, edit, delete, multiline, emoji |
-| [R2 — Social & Presence](docs/plan/r2-social-presence.md) | Friends, blocks with frozen DMs, AFK/multi-tab, typing |
-| [R3 — Moderation & Admin](docs/plan/r3-moderation.md) | Roles, bans, invitations, Manage Room modal, live access revocation |
-| [R4 — Polish & Submission](docs/plan/r4-polish-scale.md) | Password reset, delete account, active sessions UI, 10k-message perf, 300-client load test, README polish, seed |
-| [R5 — Advanced (stretch)](docs/plan/r5-advanced.md) | Multi-node Centrifugo + Redis, bot/integration API, realtime admin dashboards |
+| Release | Theme | Status |
+|---------|-------|--------|
+| [R0 — Demo-able MVP](docs/plan/r0-mvp.md) | Compose, auth, rooms (public + private flag), DMs, realtime text, unread badges, online/offline presence | **done** |
+| [R1 — Rich Messaging](docs/plan/r1-rich-messaging.md) | Attachments (file + image), reply, edit, delete, multiline, emoji | in progress |
+| [R2 — Social & Presence](docs/plan/r2-social-presence.md) | Friends, blocks with frozen DMs, AFK/multi-tab, typing | not started |
+| [R3 — Moderation & Admin](docs/plan/r3-moderation.md) | Roles, bans, invitations, Manage Room modal, live access revocation | not started |
+| [R4 — Polish & Submission](docs/plan/r4-polish-scale.md) | Password reset, delete account, active sessions UI, 10k-message perf, 300-client load test, README polish, seed | not started |
+| [R5 — Advanced (stretch)](docs/plan/r5-advanced.md) | Multi-node Centrifugo + Redis, bot/integration API, realtime admin dashboards | stretch |
 
 ## Setup & running locally
 
@@ -223,6 +231,44 @@ dev-only defaults. Override by creating a local `.env`.
 | `SESSION_SECRET`                | iron-session password (≥ 32 chars in production)    |
 | `UPLOADS_DIR`                   | Path for uploaded files (reserved for R1)           |
 | `LOG_LEVEL`                     | pino log level (default `info`)                     |
+
+## Production mode
+
+The default `docker compose up` runs the app in **development** mode
+(`next dev` with HMR, source bind-mounted from the host). For a real
+production deployment use the separate, self-contained compose file
+[`docker-compose.prod.yml`](docker-compose.prod.yml):
+
+1. In `.env`, set the public-facing WebSocket URL and secrets:
+
+   ```bash
+   NEXT_PUBLIC_CENTRIFUGO_WS_URL=wss://your.domain/connection/websocket
+   CENTRIFUGO_URL=http://centrifugo:3080          # stays on the internal network
+   CENTRIFUGO_TOKEN_HMAC_SECRET=<random>
+   CENTRIFUGO_API_KEY=<random>
+   SESSION_SECRET=<32+ chars>
+   ```
+
+2. Build + start using **only** the prod file:
+
+   ```bash
+   docker compose -f docker-compose.prod.yml up -d --build
+   ```
+
+This builds the `production` target of the Dockerfile (`next build` +
+`next start`), inlines `NEXT_PUBLIC_CENTRIFUGO_WS_URL` into the client
+bundle, drops the dev source mount, and sets `NODE_ENV=production`.
+
+`NEXT_PUBLIC_*` values are baked in at build time, so any change to them
+requires `docker compose -f docker-compose.prod.yml build app` — a plain
+`up -d` will **not** rebuild the bundle.
+
+Verify:
+
+```bash
+docker compose -f docker-compose.prod.yml exec app printenv NODE_ENV   # production
+docker compose -f docker-compose.prod.yml exec app ls .next/BUILD_ID   # exists
+```
 
 ## Development workflow
 
@@ -363,6 +409,31 @@ GitHub Actions is wired up in `.github/workflows/ci.yml` with two jobs:
 Both jobs use `pnpm/action-setup` + Node 20 with pnpm store caching. The e2e
 job runs Docker-in-runner (no service containers) because the repo's
 `docker-compose.yml` is the authoritative runtime per the submission rules.
+
+### Attachments and file storage (R1)
+
+Uploads are streamed to the `uploads` named volume under
+`${UPLOADS_DIR}/{yyyy}/{mm}/{uuid}{ext}`. The on-disk filename is never
+derived from user input; the original filename is preserved only in the DB
+and served back via `Content-Disposition` on `GET /api/files/:id`.
+
+Limits enforced on both client and server:
+
+- 20 MB per non-image file
+- 3 MB per image file (`image/*`)
+- 500 bytes per optional attachment comment
+
+Every file download re-checks room membership / DM participation on each
+request, so losing access to a room immediately removes access to its
+files. Staged attachments (uploaded but never attached to a message) are
+purged by a manual GC script:
+
+```bash
+docker compose exec app pnpm tsx scripts/gc-staged-uploads.ts
+```
+
+This is a manual operation for R1 (cron/periodic hook is out of scope;
+tracked as known debt).
 
 To author a new migration, shell into the running `app` container (no ports
 are published for `db`, so authoring from the host isn't possible without

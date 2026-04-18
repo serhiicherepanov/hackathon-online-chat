@@ -2,7 +2,17 @@ import { useQueryClient } from "@tanstack/react-query";
 import type { Centrifuge, Subscription } from "centrifuge";
 import { useEffect } from "react";
 import type { MessageDto } from "@/lib/types/chat";
-import type { MessageCreatedPayload } from "@/lib/realtime/payloads";
+import {
+  messageDeletedSchema,
+  messageUpdatedSchema,
+} from "@/lib/realtime/payloads";
+import type {
+  MessageCreatedPayload,
+  MessageDeletedPayload,
+  MessageUpdatedPayload,
+} from "@/lib/realtime/payloads";
+
+type Pages = { pages: { messages: MessageDto[]; nextCursor: string | null }[]; pageParams: unknown[] };
 
 export function useLiveMessages(
   client: Centrifuge | null,
@@ -16,51 +26,108 @@ export function useLiveMessages(
 
     let sub: Subscription;
 
-    try {
-      sub = client.newSubscription(channel);
-    } catch {
-      return;
+    const existing = client.getSubscription(channel);
+    if (existing) {
+      sub = existing;
+    } else {
+      try {
+        sub = client.newSubscription(channel);
+      } catch {
+        const again = client.getSubscription(channel);
+        if (!again) return;
+        sub = again;
+      }
     }
 
-    sub.on("publication", (ctx) => {
-      const data = ctx.data as MessageCreatedPayload;
-      if (data?.type !== "message.created") return;
-      if (data.conversationId !== conversationId) return;
+    const key = ["conv", conversationId, "messages"];
 
-      const incoming = data.message;
-      queryClient.setQueryData(
-        ["conv", conversationId, "messages"],
-        (old: unknown) => {
+    const onPublication = (ctx: { data: unknown }) => {
+      const data = ctx.data as
+        | MessageCreatedPayload
+        | MessageUpdatedPayload
+        | MessageDeletedPayload
+        | { type?: string };
+      if (!data || typeof data !== "object") return;
+
+      if (data.type === "message.created") {
+        const incoming = (data as MessageCreatedPayload).message;
+        if ((data as MessageCreatedPayload).conversationId !== conversationId) return;
+        queryClient.setQueryData(key, (old: unknown) => {
           if (!old || typeof old !== "object") return old;
-          const o = old as {
-            pages: { messages: MessageDto[]; nextCursor: string | null }[];
-            pageParams: unknown[];
-          };
+          const o = old as Pages;
           if (!o.pages?.length) return old;
           const first = o.pages[0];
           if (first.messages.some((m) => m.id === incoming.id)) return old;
-          const normalized: MessageDto = {
-            ...incoming,
-            createdAt:
-              typeof incoming.createdAt === "string"
-                ? incoming.createdAt
-                : String(incoming.createdAt),
-          };
           return {
             ...o,
             pages: [
-              { ...first, messages: [normalized, ...first.messages] },
+              { ...first, messages: [incoming as MessageDto, ...first.messages] },
               ...o.pages.slice(1),
             ],
           };
-        },
-      );
-    });
+        });
+        return;
+      }
 
-    sub.subscribe();
+      if (data.type === "message.updated") {
+        const parsed = messageUpdatedSchema.safeParse(data);
+        if (!parsed.success) return;
+        const m = (data as MessageUpdatedPayload).message;
+        queryClient.setQueryData(key, (old: unknown) => {
+          if (!old || typeof old !== "object") return old;
+          const o = old as Pages;
+          return {
+            ...o,
+            pages: o.pages.map((p) => ({
+              ...p,
+              messages: p.messages.map((x) =>
+                x.id === m.id ? (m as MessageDto) : x,
+              ),
+            })),
+          };
+        });
+        return;
+      }
+
+      if (data.type === "message.deleted") {
+        const parsed = messageDeletedSchema.safeParse(data);
+        if (!parsed.success) return;
+        const { id, deletedAt } = parsed.data;
+        queryClient.setQueryData(key, (old: unknown) => {
+          if (!old || typeof old !== "object") return old;
+          const o = old as Pages;
+          return {
+            ...o,
+            pages: o.pages.map((p) => ({
+              ...p,
+              messages: p.messages.map((x) =>
+                x.id === id
+                  ? {
+                      ...x,
+                      body: null,
+                      attachments: [],
+                      replyTo: x.replyTo
+                        ? { ...x.replyTo, bodyPreview: null, deleted: x.replyTo.deleted }
+                        : null,
+                      deleted: true,
+                      deletedAt,
+                    }
+                  : x,
+              ),
+            })),
+          };
+        });
+        return;
+      }
+    };
+
+    sub.on("publication", onPublication);
+    if (sub.state !== "subscribed" && sub.state !== "subscribing") {
+      sub.subscribe();
+    }
 
     return () => {
-      void sub.unsubscribe();
+      sub.off("publication", onPublication);
     };
   }, [channel, client, conversationId, queryClient]);
 }

@@ -1,9 +1,12 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { ErrorBoundary } from "react-error-boundary";
 import { Virtuoso, type VirtuosoHandle } from "react-virtuoso";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { MessageItem } from "@/components/chat/message-item";
+import { reportError } from "@/lib/report-error";
 import type { MessageDto } from "@/lib/types/chat";
 
 type MessageListProps = {
@@ -65,6 +68,20 @@ export function MessageList({
 
   const items = useMemo(() => messages, [messages]);
 
+  const scrollToReply = useCallback(
+    async (id: string) => {
+      const idx = items.findIndex((m) => m.id === id);
+      if (idx >= 0) {
+        virtuosoRef.current?.scrollToIndex({ index: idx, align: "center" });
+        return;
+      }
+      if (hasNextPage && !isFetchingNextPage) {
+        fetchOlder();
+      }
+    },
+    [fetchOlder, hasNextPage, isFetchingNextPage, items],
+  );
+
   return (
     <div
       className="relative flex min-h-0 flex-1 flex-col"
@@ -85,15 +102,25 @@ export function MessageList({
           if (hasNextPage && !isFetchingNextPage) fetchOlder();
         }}
         itemContent={(_index, m) => (
-          <div className="px-4 py-2">
-            <div className="text-xs text-muted-foreground">
-              {m.author.username}{" "}
-              <span className="text-[10px]">
-                {new Date(m.createdAt).toLocaleString()}
-              </span>
-            </div>
-            <div className="text-sm">{m.body}</div>
-          </div>
+          <ErrorBoundary
+            onError={(err) =>
+              reportError(err, { area: "message-item", id: m.id })
+            }
+            fallbackRender={({ resetErrorBoundary }) => (
+              <div className="px-4 py-2 text-xs text-muted-foreground">
+                Could not render message.{" "}
+                <button
+                  type="button"
+                  className="underline"
+                  onClick={resetErrorBoundary}
+                >
+                  Retry
+                </button>
+              </div>
+            )}
+          >
+            <MessageItem message={m} onScrollToReply={scrollToReply} />
+          </ErrorBoundary>
         )}
         />
       </div>

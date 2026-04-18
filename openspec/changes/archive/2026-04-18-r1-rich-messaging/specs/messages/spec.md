@@ -1,9 +1,5 @@
-# messages Specification
+## MODIFIED Requirements
 
-## Purpose
-
-Defines the core messaging capability for R0: sending text messages (≤ 3 KB) to a conversation the caller is a member of, persisting them in PostgreSQL before fan-out via Centrifugo, keyset-paginated history in reverse chronological order for infinite scroll, ULID-based ordering invariants that let clients merge live events with paginated history without duplicates or gaps, and offline delivery (offline recipients see messages when they next open the app).
-## Requirements
 ### Requirement: Send a text message to a conversation
 
 The system SHALL accept messages from an authenticated member of a conversation, persist them in PostgreSQL before acknowledging the client, and then fan them out via Centrifugo. A message body MAY be empty when the message carries at least one attachment, and MAY include a `replyToId` referencing a non-deleted message in the same conversation.
@@ -71,55 +67,7 @@ The system SHALL accept messages from an authenticated member of a conversation,
 - **WHEN** `POST /api/conversations/:id/messages` is called with an id that does not exist in `Conversation`
 - **THEN** the server responds with `404 Not Found`
 
-### Requirement: Paginated message history (keyset)
-
-The system SHALL expose a keyset-paginated endpoint that returns up to `limit` messages from a conversation in reverse chronological order, optionally anchored before a cursor, suitable for infinite scroll.
-
-#### Scenario: Initial page returns newest messages
-
-- **WHEN** a conversation member calls `GET /api/conversations/:id/messages?limit=50`
-- **THEN** the server responds with `200 OK` and a JSON object `{ messages: Message[], nextCursor: string | null }`
-- **AND** `messages` contains the 50 newest messages for the conversation, ordered by `(createdAt DESC, id DESC)`
-- **AND** `nextCursor` is the id of the oldest message in the page, or `null` if fewer than 50 messages exist
-
-#### Scenario: Older page uses `before` cursor
-
-- **WHEN** a member calls `GET /api/conversations/:id/messages?before=<ulid>&limit=50`
-- **THEN** the response contains up to 50 messages strictly older than the cursor message, in the same order
-
-#### Scenario: Limit is clamped
-
-- **WHEN** `limit` is omitted, out of range, or greater than 100
-- **THEN** the server uses a default of 50 and caps the effective limit at 100
-
-#### Scenario: Non-member cannot read history
-
-- **WHEN** a non-member calls `GET /api/conversations/:id/messages`
-- **THEN** the server responds with `403 Forbidden`
-
-### Requirement: Message ordering invariants
-
-The system SHALL assign `Message.id` as a ULID generated server-side at write time and SHALL order history by `(createdAt DESC, id DESC)` so that clients merging live `message.created` events with paginated history never observe duplicates or out-of-order gaps.
-
-#### Scenario: ULID ordering ties createdAt
-
-- **WHEN** two `Message` rows share the same millisecond `createdAt`
-- **THEN** the history query still returns them in a stable order, because `id` (ULID) is the secondary sort key and is monotonically increasing within a millisecond for the same server process
-
-#### Scenario: Composite index supports history queries
-
-- **WHEN** the Prisma schema is inspected
-- **THEN** `Message` declares a composite index on `(conversationId, createdAt, id)` (descending use is served by the same index in Postgres)
-
-### Requirement: Offline message delivery on next connect
-
-The system SHALL persist every message regardless of recipient connection state, so a user who is offline when a message is sent SHALL see it when they next open the app.
-
-#### Scenario: Offline recipient sees message on next page load
-
-- **WHEN** user B is offline and user A sends a message to a conversation C that contains B
-- **THEN** the `Message` row is persisted
-- **AND** when B later opens the app and navigates to C, the initial history page contains the message, served by the standard history endpoint
+## ADDED Requirements
 
 ### Requirement: Author can edit own message
 
@@ -217,4 +165,3 @@ The system SHALL include an `attachments` array on every message payload, in sta
 - **WHEN** a message with N ≥ 1 attached `Attachment` rows is serialized for history or realtime
 - **THEN** the payload includes `attachments: [{ id, kind, originalName, mime, size, comment }]`
 - **AND** the array is ordered by `(createdAt ASC, id ASC)`
-

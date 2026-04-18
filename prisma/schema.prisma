@@ -36,6 +36,7 @@ model User {
   dmParticipants DmParticipant[]
   messages       Message[]
   messageReads   MessageRead[]
+  attachments    Attachment[]
 }
 
 model Session {
@@ -107,8 +108,38 @@ model Message {
   author         User         @relation(fields: [authorId], references: [id], onDelete: Cascade)
   body           String
   createdAt      DateTime     @default(now())
+  editedAt       DateTime?
+  deletedAt      DateTime?
+  replyToId      String?
+  replyTo        Message?     @relation("MessageReplies", fields: [replyToId], references: [id], onDelete: SetNull)
+  replies        Message[]    @relation("MessageReplies")
+  attachments    Attachment[]
 
   @@index([conversationId, createdAt(sort: Desc), id(sort: Desc)])
+  @@index([replyToId])
+}
+
+enum AttachmentKind {
+  image
+  file
+}
+
+model Attachment {
+  id           String         @id @default(cuid())
+  uploaderId   String
+  uploader     User           @relation(fields: [uploaderId], references: [id], onDelete: Cascade)
+  messageId    String?
+  message      Message?       @relation(fields: [messageId], references: [id], onDelete: Cascade)
+  originalName String
+  storedPath   String
+  mime         String
+  size         Int
+  kind         AttachmentKind
+  comment      String?
+  createdAt    DateTime       @default(now())
+
+  @@index([messageId])
+  @@index([uploaderId, createdAt])
 }
 
 model MessageRead {

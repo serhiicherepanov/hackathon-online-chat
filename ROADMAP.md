@@ -11,7 +11,7 @@ Legend: `[x]` done · `[~]` in progress · `[ ]` not started · `[-]` deferred/s
 | Release | Theme | Status |
 |---------|-------|--------|
 | [R0 — Demo-able MVP](docs/plan/r0-mvp.md) | Compose, auth, rooms, DMs, realtime text, unread, presence | **done** |
-| [R1 — Rich Messaging](docs/plan/r1-rich-messaging.md) | Attachments, reply, edit, delete, multiline, emoji | not started |
+| [R1 — Rich Messaging](docs/plan/r1-rich-messaging.md) | Attachments, reply, edit, delete, multiline, emoji | **done** |
 | [R2 — Social & Presence](docs/plan/r2-social-presence.md) | Friends, blocks, AFK/multi-tab, typing | not started |
 | [R3 — Moderation & Admin](docs/plan/r3-moderation.md) | Roles, bans, invitations, Manage Room | not started |
 | [R4 — Polish & Submission](docs/plan/r4-polish-scale.md) | Password reset, account delete, sessions UI, 10k-msg perf, 300-client load test | not started |
@@ -34,19 +34,20 @@ Legend: `[x]` done · `[~]` in progress · `[ ]` not started · `[-]` deferred/s
 
 ## R1 — Rich Messaging
 
-- [ ] Multiline composer (Enter sends, Shift+Enter newline, autosize)
-- [ ] Emoji: inline popover picker + OS shortcut
-- [ ] Reply/quote: composer banner, outlined quote block, click-to-scroll
-- [ ] Edit own message with "edited" indicator (live)
-- [ ] Delete own message (soft-delete, live removal)
-- [ ] Attachments: upload button + clipboard paste; per-attachment comment; original filename preserved
-- [ ] Server-side size limits: 20 MB file, 3 MB image
-- [ ] `GET /api/files/:id` gated by membership / DM-participant re-check
-- [ ] Prisma: `Message.replyToId`, `editedAt`, `deletedAt`; `Attachment` model; `${UPLOADS_DIR}/{yyyy}/{mm}/{uuid}{ext}` layout
-- [ ] APIs: `POST /api/uploads`, extended `POST /api/conversations/:id/messages`, `PATCH`/`DELETE /api/messages/:id`, `GET /api/files/:id`
-- [ ] Realtime: `message.updated`, `message.deleted`
-- [ ] Optimistic send with upload progress in composer
-- [ ] R1 demo script passes end-to-end
+- [x] Multiline composer (Enter sends, Shift+Enter newline, autosize)
+- [x] Emoji: inline popover picker + OS shortcut
+- [x] Reply/quote: composer banner, outlined quote block, click-to-scroll
+- [x] Edit own message with "edited" indicator (live)
+- [x] Delete own message (soft-delete, live removal)
+- [x] Attachments: upload button + clipboard paste; per-attachment comment; original filename preserved
+- [x] Server-side size limits: 20 MB file, 3 MB image
+- [x] `GET /api/files/:id` gated by membership / DM-participant re-check
+- [x] Prisma: `Message.replyToId`, `editedAt`, `deletedAt`; `Attachment` model; `${UPLOADS_DIR}/{yyyy}/{mm}/{uuid}{ext}` layout
+- [x] APIs: `POST /api/uploads`, extended `POST /api/conversations/:id/messages`, `PATCH`/`DELETE /api/messages/:id`, `GET /api/files/:id`
+- [x] Realtime: `message.updated`, `message.deleted`
+- [x] Author-echo insert (server response placed into cache immediately; live event dedupes)
+- [~] Full optimistic send with upload progress in composer (author-echo covers send; progress UI pending)
+- [x] R1 demo script passes end-to-end (e2e/r1-acceptance.spec.ts, 5/5 green)
 
 ## R2 — Social & Presence
 

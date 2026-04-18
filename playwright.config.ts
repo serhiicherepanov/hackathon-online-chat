@@ -8,10 +8,10 @@ export default defineConfig({
   fullyParallel: false,
   workers: 1,
   forbidOnly: !!process.env.CI,
-  retries: 2,
+  retries: 0,
   reporter: process.env.CI ? "github" : "list",
-  timeout: 90_000,
-  expect: { timeout: 20_000 },
+  timeout: 30_000,
+  expect: { timeout: 10_000 },
   use: {
     baseURL,
     trace: "on-first-retry",

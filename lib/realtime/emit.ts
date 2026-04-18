@@ -5,6 +5,8 @@ import {
 import { logger } from "@/lib/logger";
 import type {
   MessageCreatedPayload,
+  MessageDeletedPayload,
+  MessageUpdatedPayload,
   PresenceChangedPayload,
   UnreadChangedPayload,
 } from "@/lib/realtime/payloads";
@@ -65,6 +67,38 @@ export async function publishMessageCreated(
     await centrifugoPublish(channel, payload);
   } catch (err) {
     logger.warn({ err, channel }, "publishMessageCreated failed");
+  }
+}
+
+export async function publishMessageUpdated(
+  conversationType: "room" | "dm",
+  conversationId: string,
+  payload: MessageUpdatedPayload,
+): Promise<void> {
+  const channel =
+    conversationType === "room"
+      ? `room:${conversationId}`
+      : `dm:${conversationId}`;
+  try {
+    await centrifugoPublish(channel, payload);
+  } catch (err) {
+    logger.warn({ err, channel }, "publishMessageUpdated failed");
+  }
+}
+
+export async function publishMessageDeleted(
+  conversationType: "room" | "dm",
+  conversationId: string,
+  payload: MessageDeletedPayload,
+): Promise<void> {
+  const channel =
+    conversationType === "room"
+      ? `room:${conversationId}`
+      : `dm:${conversationId}`;
+  try {
+    await centrifugoPublish(channel, payload);
+  } catch (err) {
+    logger.warn({ err, channel }, "publishMessageDeleted failed");
   }
 }
 

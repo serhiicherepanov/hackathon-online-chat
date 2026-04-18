@@ -24,5 +24,10 @@ until pnpm exec prisma migrate deploy; do
   sleep 2
 done
 
-log info "migrations applied, starting next dev"
-exec pnpm dev
+if [ "${NODE_ENV:-development}" = "production" ]; then
+  log info "migrations applied, starting next start (production)"
+  exec pnpm start
+else
+  log info "migrations applied, starting next dev (development)"
+  exec pnpm dev
+fi

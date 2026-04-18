@@ -1,3 +1,15 @@
+#
+# Self-contained production compose file. Use instead of docker-compose.yml:
+#
+#   docker compose -f docker-compose.prod.yml up -d --build
+#
+# Differences vs. docker-compose.yml (development):
+#   - app builds the `production` Dockerfile target (real `next build`)
+#   - NEXT_PUBLIC_CENTRIFUGO_WS_URL is passed as a build ARG so it gets
+#     inlined into the client bundle
+#   - no source bind-mount / dev caches (the baked .next wins)
+#   - NODE_ENV=production, no file-watcher polling
+#
 services:
   traefik:
     image: traefik:v3.3
@@ -39,9 +51,11 @@ services:
     volumes:
       - ./centrifugo/config.json:/centrifugo/config.json:ro
     environment:
-      CENTRIFUGO_TOKEN_HMAC_SECRET_KEY: "${CENTRIFUGO_TOKEN_HMAC_SECRET:-dev-centrifugo-hmac-secret-change-me}"
-      CENTRIFUGO_API_KEY: "${CENTRIFUGO_API_KEY:-dev-centrifugo-api-key-change-me}"
-      CENTRIFUGO_CLIENT_ALLOWED_ORIGINS: "${CENTRIFUGO_CLIENT_ALLOWED_ORIGINS:-http://localhost:${TRAEFIK_BIND_PORT:-3080} http://127.0.0.1:${TRAEFIK_BIND_PORT:-3080}}"
+      CENTRIFUGO_TOKEN_HMAC_SECRET_KEY: "${CENTRIFUGO_TOKEN_HMAC_SECRET:?set CENTRIFUGO_TOKEN_HMAC_SECRET in .env}"
+      CENTRIFUGO_API_KEY: "${CENTRIFUGO_API_KEY:?set CENTRIFUGO_API_KEY in .env}"
+      # Browser Origin header allowlist for /connection/websocket. Must include
+      # the public HTTPS origin the app is served from (no trailing slash).
+      CENTRIFUGO_CLIENT_ALLOWED_ORIGINS: "${CENTRIFUGO_CLIENT_ALLOWED_ORIGINS:?set CENTRIFUGO_CLIENT_ALLOWED_ORIGINS to your public https:// origin}"
     ulimits:
       nofile:
         soft: 65536
@@ -58,7 +72,9 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
-      target: development
+      target: production
+      args:
+        NEXT_PUBLIC_CENTRIFUGO_WS_URL: "${NEXT_PUBLIC_CENTRIFUGO_WS_URL:?set NEXT_PUBLIC_CENTRIFUGO_WS_URL to your wss:// URL}"
     depends_on:
       db:
         condition: service_healthy
@@ -66,22 +82,17 @@ services:
         condition: service_started
     environment:
       DATABASE_URL: "${DATABASE_URL:-postgresql://chat:chat@db:5432/chat?schema=public}"
-      CENTRIFUGO_TOKEN_HMAC_SECRET: "${CENTRIFUGO_TOKEN_HMAC_SECRET:-dev-centrifugo-hmac-secret-change-me}"
-      CENTRIFUGO_API_KEY: "${CENTRIFUGO_API_KEY:-dev-centrifugo-api-key-change-me}"
+      CENTRIFUGO_TOKEN_HMAC_SECRET: "${CENTRIFUGO_TOKEN_HMAC_SECRET:?set CENTRIFUGO_TOKEN_HMAC_SECRET in .env}"
+      CENTRIFUGO_API_KEY: "${CENTRIFUGO_API_KEY:?set CENTRIFUGO_API_KEY in .env}"
       CENTRIFUGO_URL: "${CENTRIFUGO_URL:-http://centrifugo:3080}"
-      NEXT_PUBLIC_CENTRIFUGO_WS_URL: "${NEXT_PUBLIC_CENTRIFUGO_WS_URL:-ws://localhost:${TRAEFIK_BIND_PORT:-3080}/connection/websocket}"
-      SESSION_SECRET: "${SESSION_SECRET:-dev-session-secret-change-me-32chars!!}"
+      NEXT_PUBLIC_CENTRIFUGO_WS_URL: "${NEXT_PUBLIC_CENTRIFUGO_WS_URL}"
+      SESSION_SECRET: "${SESSION_SECRET:?set SESSION_SECRET to a 32+ char random value}"
       UPLOADS_DIR: "${UPLOADS_DIR:-/app/uploads}"
       LOG_LEVEL: "${LOG_LEVEL:-info}"
-      NODE_ENV: "development"
+      NODE_ENV: "production"
       PORT: "3080"
       HOSTNAME: "0.0.0.0"
-      WATCHPACK_POLLING: "true"
-      CHOKIDAR_USEPOLLING: "true"
     volumes:
-      - .:/app
-      - app_node_modules:/app/node_modules
-      - app_next_cache:/app/.next
       - uploads:/app/uploads
     labels:
       - "traefik.enable=true"
@@ -94,5 +105,3 @@ services:
 volumes:
   pgdata:
   uploads:
-  app_node_modules:
-  app_next_cache:
