@@ -73,8 +73,9 @@ test.describe("R0 acceptance (13.x)", () => {
 
     await pageA.getByRole("button", { name: "+ New DM" }).click();
     const dmDlg = pageA.getByRole("dialog", { name: "Start a DM" });
-    await dmDlg.getByPlaceholder("Username").fill(users.b.username);
-    await dmDlg.getByRole("button", { name: "Open" }).click();
+    await dmDlg
+      .getByRole("button", { name: users.b.username, exact: true })
+      .click();
     await pageA.waitForURL(/\/dm\/[^/]+$/, { timeout: 30_000 });
 
     const dmBody = `dm-e2e-${Date.now()}`;

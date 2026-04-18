@@ -6,7 +6,7 @@ Defines the core messaging capability for R0: sending text messages (≤ 3 KB) t
 ## Requirements
 ### Requirement: Send a text message to a conversation
 
-The system SHALL accept messages from an authenticated member of a conversation, persist them in PostgreSQL before acknowledging the client, and then fan them out via Centrifugo. A message body MAY be empty when the message carries at least one attachment, and MAY include a `replyToId` referencing a non-deleted message in the same conversation.
+The system SHALL accept messages from an authenticated member of a conversation, persist them in PostgreSQL before acknowledging the client, and then fan them out via Centrifugo. A message body MAY be empty when the message carries at least one attachment, and MAY include a `replyToId` referencing a non-deleted message in the same conversation. For direct-message conversations, the server SHALL reject new sends whenever either participant has an active user block against the other; blocked DMs remain readable but frozen read-only.
 
 #### Scenario: Member sends a valid text message
 
@@ -65,6 +65,18 @@ The system SHALL accept messages from an authenticated member of a conversation,
 - **THEN** the server responds with `403 Forbidden`
 - **AND** no `Message` row is created
 - **AND** no Centrifugo publish occurs
+
+#### Scenario: Blocked DM is frozen read-only
+
+- **WHEN** a participant in a DM conversation calls `POST /api/conversations/:id/messages` and either participant currently blocks the other
+- **THEN** the server responds with `403 Forbidden`
+- **AND** no `Message` row is created
+- **AND** no Centrifugo publish occurs
+
+#### Scenario: Grandfathered DM still allows sends when unblocked
+
+- **WHEN** a DM conversation was created before R2 between two users who are not currently friends, and neither direction has an active block
+- **THEN** either existing participant may still send a message successfully
 
 #### Scenario: Unknown conversation returns 404
 

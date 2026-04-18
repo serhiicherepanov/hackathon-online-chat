@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useRouter } from "next/navigation";
+import { useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Separator } from "@/components/ui/separator";
@@ -14,6 +15,7 @@ import {
   useUnblockUser,
 } from "@/lib/hooks/use-contacts";
 import type { PresenceStatus } from "@/lib/realtime/payloads";
+import { filterByPeerUsername } from "@/lib/social/filter-contacts";
 import { cn } from "@/lib/utils";
 
 const STATUS_DOT: Record<PresenceStatus, string> = {
@@ -23,6 +25,7 @@ const STATUS_DOT: Record<PresenceStatus, string> = {
 };
 
 export default function ContactsPage() {
+  const router = useRouter();
   const contacts = useContacts();
   const send = useSendFriendRequest();
   const accept = useAcceptFriendRequest();
@@ -31,36 +34,68 @@ export default function ContactsPage() {
   const block = useBlockUser();
   const unblock = useUnblockUser();
 
-  const [newUserId, setNewUserId] = useState("");
+  const [identifier, setIdentifier] = useState("");
   const [formError, setFormError] = useState<string | null>(null);
+  const [query, setQuery] = useState("");
+  const [openingDmFor, setOpeningDmFor] = useState<string | null>(null);
 
   async function submitNewRequest(e: React.FormEvent) {
     e.preventDefault();
-    const id = newUserId.trim();
-    if (!id) return;
+    const value = identifier.trim();
+    if (!value) return;
     setFormError(null);
     try {
-      await send.mutateAsync(id);
-      setNewUserId("");
+      await send.mutateAsync(value);
+      setIdentifier("");
     } catch (err) {
       setFormError((err as Error).message);
     }
   }
+
+  async function openDmWith(username: string) {
+    setOpeningDmFor(username);
+    try {
+      const res = await fetch(`/api/dm/${encodeURIComponent(username)}`, {
+        method: "POST",
+      });
+      if (!res.ok) return;
+      const json = (await res.json()) as { conversationId: string };
+      router.push(`/dm/${json.conversationId}`);
+    } finally {
+      setOpeningDmFor(null);
+    }
+  }
+
+  const data = contacts.data;
+  const filteredFriends = useMemo(
+    () => filterByPeerUsername(data?.friends ?? [], query),
+    [data?.friends, query],
+  );
+  const filteredInbound = useMemo(
+    () => filterByPeerUsername(data?.inboundRequests ?? [], query),
+    [data?.inboundRequests, query],
+  );
+  const filteredOutbound = useMemo(
+    () => filterByPeerUsername(data?.outboundRequests ?? [], query),
+    [data?.outboundRequests, query],
+  );
+  const filteredBlocked = useMemo(
+    () => filterByPeerUsername(data?.blockedUsers ?? [], query),
+    [data?.blockedUsers, query],
+  );
 
   if (contacts.isPending) {
     return (
       <div className="p-6 text-sm text-muted-foreground">Loading contacts…</div>
     );
   }
-  if (contacts.isError || !contacts.data) {
+  if (contacts.isError || !data) {
     return (
       <div className="p-6 text-sm text-destructive">
         Could not load contacts.
       </div>
     );
   }
-
-  const data = contacts.data;
 
   return (
     <div className="flex h-full min-h-0 flex-1 flex-col gap-6 overflow-y-auto p-6">
@@ -75,9 +110,10 @@ export default function ContactsPage() {
         <h2 className="text-sm font-semibold">Send a friend request</h2>
         <form className="mt-2 flex gap-2" onSubmit={submitNewRequest}>
           <Input
-            value={newUserId}
-            onChange={(e) => setNewUserId(e.target.value)}
-            placeholder="User id"
+            value={identifier}
+            onChange={(e) => setIdentifier(e.target.value)}
+            placeholder="User id, username, or email"
+            aria-label="User id, username, or email"
             className="max-w-xs"
           />
           <Button type="submit" disabled={send.isPending}>
@@ -91,15 +127,25 @@ export default function ContactsPage() {
 
       <Separator />
 
+      <section data-testid="contacts-search">
+        <Input
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+          placeholder="Search contacts by username"
+          aria-label="Search contacts"
+          className="max-w-xs"
+        />
+      </section>
+
       <section data-testid="contacts-inbound">
         <h2 className="text-sm font-semibold">Incoming requests</h2>
-        {data.inboundRequests.length === 0 ? (
+        {filteredInbound.length === 0 ? (
           <p className="mt-2 text-sm text-muted-foreground">
             No pending incoming requests.
           </p>
         ) : (
           <ul className="mt-2 space-y-2">
-            {data.inboundRequests.map((r) => (
+            {filteredInbound.map((r) => (
               <li
                 key={r.friendshipId}
                 className="flex items-center justify-between rounded border px-3 py-2 text-sm"
@@ -130,19 +176,21 @@ export default function ContactsPage() {
 
       <section data-testid="contacts-outbound">
         <h2 className="text-sm font-semibold">Outgoing requests</h2>
-        {data.outboundRequests.length === 0 ? (
+        {filteredOutbound.length === 0 ? (
           <p className="mt-2 text-sm text-muted-foreground">
             No pending outgoing requests.
           </p>
         ) : (
           <ul className="mt-2 space-y-2">
-            {data.outboundRequests.map((r) => (
+            {filteredOutbound.map((r) => (
               <li
                 key={r.friendshipId}
                 className="flex items-center justify-between rounded border px-3 py-2 text-sm"
               >
                 <span className="font-medium">{r.peer.username}</span>
-                <span className="text-xs text-muted-foreground">Awaiting response</span>
+                <span className="text-xs text-muted-foreground">
+                  Awaiting response
+                </span>
               </li>
             ))}
           </ul>
@@ -151,55 +199,84 @@ export default function ContactsPage() {
 
       <section data-testid="contacts-friends">
         <h2 className="text-sm font-semibold">Friends</h2>
-        {data.friends.length === 0 ? (
+        {filteredFriends.length === 0 ? (
           <p className="mt-2 text-sm text-muted-foreground">No friends yet.</p>
         ) : (
           <ul className="mt-2 space-y-2">
-            {data.friends.map((f) => (
-              <li
-                key={f.friendshipId}
-                className="flex items-center justify-between rounded border px-3 py-2 text-sm"
-              >
-                <div className="flex items-center gap-2">
-                  <span
-                    className={cn(
-                      "inline-block h-2 w-2 rounded-full",
-                      STATUS_DOT[f.status],
-                    )}
-                  />
-                  <span className="font-medium">{f.peer.username}</span>
-                </div>
-                <div className="flex gap-2">
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={() => void remove.mutate(f.peer.id)}
-                    disabled={remove.isPending}
+            {filteredFriends.map((f) => {
+              const opening = openingDmFor === f.peer.username;
+              return (
+                <li
+                  key={f.friendshipId}
+                  className="rounded border text-sm"
+                  data-testid="contacts-friend-row"
+                >
+                  <div
+                    role="button"
+                    tabIndex={0}
+                    aria-label={`Open DM with ${f.peer.username}`}
+                    aria-busy={opening || undefined}
+                    onClick={() => void openDmWith(f.peer.username)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" || e.key === " ") {
+                        e.preventDefault();
+                        void openDmWith(f.peer.username);
+                      }
+                    }}
+                    className="flex cursor-pointer items-center justify-between px-3 py-2 hover:bg-accent focus:bg-accent focus:outline-none"
                   >
-                    Remove
-                  </Button>
-                  <Button
-                    size="sm"
-                    variant="destructive"
-                    onClick={() => void block.mutate(f.peer.id)}
-                    disabled={block.isPending}
-                  >
-                    Block
-                  </Button>
-                </div>
-              </li>
-            ))}
+                    <div className="flex items-center gap-2">
+                      <span
+                        className={cn(
+                          "inline-block h-2 w-2 rounded-full",
+                          STATUS_DOT[f.status],
+                        )}
+                      />
+                      <span className="font-medium">{f.peer.username}</span>
+                    </div>
+                    <div
+                      className="flex gap-2"
+                      onClick={(e) => e.stopPropagation()}
+                      onKeyDown={(e) => e.stopPropagation()}
+                    >
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          void remove.mutate(f.peer.id);
+                        }}
+                        disabled={remove.isPending}
+                      >
+                        Remove
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="destructive"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          void block.mutate(f.peer.id);
+                        }}
+                        disabled={block.isPending}
+                      >
+                        Block
+                      </Button>
+                    </div>
+                  </div>
+                </li>
+              );
+            })}
           </ul>
         )}
       </section>
 
       <section data-testid="contacts-blocked">
         <h2 className="text-sm font-semibold">Blocked</h2>
-        {data.blockedUsers.length === 0 ? (
+        {filteredBlocked.length === 0 ? (
           <p className="mt-2 text-sm text-muted-foreground">No blocked users.</p>
         ) : (
           <ul className="mt-2 space-y-2">
-            {data.blockedUsers.map((b) => (
+            {filteredBlocked.map((b) => (
               <li
                 key={b.peer.id}
                 className="flex items-center justify-between rounded border px-3 py-2 text-sm"

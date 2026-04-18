@@ -32,8 +32,10 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { useActivityHeartbeat } from "@/lib/hooks/use-activity-heartbeat";
+import { useContacts } from "@/lib/hooks/use-contacts";
 import { useMyDmContacts } from "@/lib/hooks/use-dm-contacts";
 import { useMyRooms } from "@/lib/hooks/use-my-rooms";
+import { filterByPeerUsername } from "@/lib/social/filter-contacts";
 import { useAuthStore } from "@/lib/stores/auth-store";
 import { useUnreadStore } from "@/lib/stores/unread-store";
 import { cn } from "@/lib/utils";
@@ -91,10 +93,16 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const unreadMap = useUnreadStore((s) => s.map);
 
   const [dmOpen, setDmOpen] = useState(false);
-  const [dmUsername, setDmUsername] = useState("");
+  const [dmQuery, setDmQuery] = useState("");
+  const contacts = useContacts();
+  const friends = contacts.data?.friends ?? [];
+  const filteredFriends = useMemo(
+    () => filterByPeerUsername(friends, dmQuery),
+    [friends, dmQuery],
+  );
 
-  async function startDm() {
-    const u = dmUsername.trim();
+  async function startDm(username: string) {
+    const u = username.trim();
     if (!u) return;
     const res = await fetch(`/api/dm/${encodeURIComponent(u)}`, {
       method: "POST",
@@ -102,7 +110,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     if (!res.ok) return;
     const json = (await res.json()) as { conversationId: string };
     setDmOpen(false);
-    setDmUsername("");
+    setDmQuery("");
     await dmContacts.refetch();
     router.push(`/dm/${json.conversationId}`);
   }
@@ -214,16 +222,59 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                             <DialogHeader>
                               <DialogTitle>Start a DM</DialogTitle>
                             </DialogHeader>
-                            <Input
-                              value={dmUsername}
-                              onChange={(e) => setDmUsername(e.target.value)}
-                              placeholder="Username"
-                            />
-                            <DialogFooter>
-                              <Button type="button" onClick={() => void startDm()}>
-                                Open
-                              </Button>
-                            </DialogFooter>
+                            {friends.length === 0 ? (
+                              <div
+                                className="space-y-2 text-sm"
+                                data-testid="dm-picker-empty"
+                              >
+                                <p className="text-muted-foreground">
+                                  You don&apos;t have any contacts yet.
+                                </p>
+                                <Button
+                                  asChild
+                                  size="sm"
+                                  variant="outline"
+                                  onClick={() => setDmOpen(false)}
+                                >
+                                  <Link href="/contacts">Go to Contacts</Link>
+                                </Button>
+                              </div>
+                            ) : (
+                              <div
+                                className="space-y-2"
+                                data-testid="dm-picker"
+                              >
+                                <Input
+                                  value={dmQuery}
+                                  onChange={(e) => setDmQuery(e.target.value)}
+                                  placeholder="Search contacts"
+                                  aria-label="Search contacts"
+                                />
+                                <ScrollArea className="h-60 rounded border">
+                                  <ul className="p-1">
+                                    {filteredFriends.length === 0 ? (
+                                      <li className="px-2 py-3 text-sm text-muted-foreground">
+                                        No contacts match.
+                                      </li>
+                                    ) : (
+                                      filteredFriends.map((f) => (
+                                        <li key={f.friendshipId}>
+                                          <button
+                                            type="button"
+                                            className="w-full rounded px-2 py-2 text-left text-sm hover:bg-accent focus:bg-accent focus:outline-none"
+                                            onClick={() =>
+                                              void startDm(f.peer.username)
+                                            }
+                                          >
+                                            {f.peer.username}
+                                          </button>
+                                        </li>
+                                      ))
+                                    )}
+                                  </ul>
+                                </ScrollArea>
+                              </div>
+                            )}
                           </DialogContent>
                         </Dialog>
 

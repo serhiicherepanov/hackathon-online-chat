@@ -38,7 +38,8 @@ export function useContacts() {
 export function useSendFriendRequest() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (userId: string) => jsonPost("/api/friends/requests", { userId }),
+    mutationFn: (identifier: string) =>
+      jsonPost("/api/friends/requests", { identifier }),
     onSuccess: () => void qc.invalidateQueries({ queryKey: ["me", "friends"] }),
   });
 }

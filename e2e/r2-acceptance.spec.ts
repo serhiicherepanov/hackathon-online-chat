@@ -95,8 +95,9 @@ test.describe("R2 acceptance (social graph)", () => {
 
       await pageA.getByRole("button", { name: "+ New DM" }).click();
       const dmDlg = pageA.getByRole("dialog", { name: "Start a DM" });
-      await dmDlg.getByPlaceholder("Username").fill(userB.username);
-      await dmDlg.getByRole("button", { name: "Open" }).click();
+      await dmDlg
+        .getByRole("button", { name: userB.username, exact: true })
+        .click();
       await pageA.waitForURL(/\/dm\/[^/]+$/, { timeout: 30_000 });
 
       const dmBody = `friend-dm-${Date.now()}`;
