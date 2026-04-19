@@ -217,9 +217,19 @@ test.describe("R1 acceptance (rich messaging)", () => {
     await joinRoomFromCatalog(pageB, roomName);
     await openRoomFromCatalog(pageB, roomName);
 
+    const connected = (page: typeof pageA) =>
+      expect(page.locator("[data-realtime-status='connected']").first()).toBeVisible({
+        timeout: 20_000,
+      });
+    await connected(pageA);
+    await connected(pageB);
+
     const anchor = `anchor-${Date.now()}`;
     await pageA.getByPlaceholder("Message").fill(anchor);
     await pageA.getByRole("button", { name: "Send" }).click();
+    await expect(pageA.getByText(anchor, { exact: true })).toBeVisible({
+      timeout: 10_000,
+    });
     await expect(pageB.getByText(anchor, { exact: true })).toBeVisible({
       timeout: 10_000,
     });

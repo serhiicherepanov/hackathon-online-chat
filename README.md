@@ -40,20 +40,19 @@ Node.js, pnpm, Postgres, and Centrifugo all run inside containers.
 ```bash
 git clone <repo>
 cd <repo>
-docker compose up --build
+cp .env.example .env
+# set production secrets/urls in .env:
+#   NEXT_PUBLIC_CENTRIFUGO_WS_URL=wss://your.domain/connection/websocket
+#   CENTRIFUGO_TOKEN_HMAC_SECRET=<random>
+#   CENTRIFUGO_API_KEY=<random>
+#   SESSION_SECRET=<32+ chars>
+#   SESSION_COOKIE_DOMAIN=.digitalspace.studio  # optional, shared subdomains
+docker compose -f docker-compose.prod.yml up -d --build
 # open http://localhost:3080
 ```
 
-Creating a `.env` file is optional; `docker-compose.yml` ships working dev
-defaults for every variable listed in [`.env.example`](.env.example). Copy and
-customise if you need overrides:
-
-```bash
-cp .env.example .env
-```
-
-Shut down with `docker compose down`; add `-v` to wipe the Postgres and
-uploads volumes.
+Shut down with `docker compose -f docker-compose.prod.yml down`; add `-v` to
+wipe the Postgres and uploads volumes.
 
 ### Ports
 
@@ -66,50 +65,43 @@ Traefik waits for it before starting.
 Smoke checks once the stack is up:
 
 - `http://localhost:3080/` — landing page
-- `http://localhost:3080/sign-up` / `/sign-in`
+- `http://localhost:3080/sign-up` / `/sign-in` / `/forgot-password`
 - `http://localhost:3080/rooms` — catalog (after sign-in)
-- `http://localhost:3080/api/health` — `{"status":"ok","db":"up"}`
+- `http://localhost:3080/settings` — profile, password, sessions, and delete-account UI
+- `http://localhost:3080/api/health` — `{"status":"ok","db":"up","centrifugo":"up"}`
 
 JSON logs stream via `docker compose logs -f app`; pipe through `pino-pretty`
 for human-readable output.
 
 ## Environment variables
 
-All variables are documented in [`.env.example`](.env.example) with dev-only
-defaults.
+All variables are documented in [`.env.example`](.env.example).
 
 | Variable                        | Purpose                                             |
 |---------------------------------|-----------------------------------------------------|
 | `DATABASE_URL`                  | Prisma connection string (points at `db` service)   |
 | `CENTRIFUGO_TOKEN_HMAC_SECRET`  | HMAC secret for Centrifugo connect tokens           |
 | `CENTRIFUGO_API_KEY`            | Centrifugo HTTP API key for server-to-server calls  |
-| `CENTRIFUGO_URL`                | Centrifugo HTTP API URL (container network)         |
+| `CENTRIFUGO_URL`                | Centrifugo HTTP API base URL (may include a Traefik path prefix if the app calls Centrifugo on a public host) |
 | `NEXT_PUBLIC_CENTRIFUGO_WS_URL` | WebSocket URL used by the browser                   |
 | `SESSION_SECRET`                | iron-session password (≥ 32 chars in production)    |
+| `SESSION_COOKIE_DOMAIN`         | Optional shared cookie domain, e.g. `.example.com` |
 | `UPLOADS_DIR`                   | Path for uploaded files                             |
+| `PASSWORD_RESET_DELIVERY_FILE`  | Optional JSONL artifact file for dev/test reset URLs |
 | `LOG_LEVEL`                     | pino log level (default `info`)                     |
 
-## Production mode
+## Development mode (optional)
 
-The default `docker compose up` runs the app in **development** mode
-(`next dev` + HMR, source bind-mounted). For a real deployment use the
-self-contained [`docker-compose.prod.yml`](docker-compose.prod.yml):
+Use [`docker-compose.yml`](docker-compose.yml) when you need `next dev` + HMR
+and source bind-mounts:
 
 ```bash
-# set public WS URL + secrets in .env first:
-#   NEXT_PUBLIC_CENTRIFUGO_WS_URL=wss://your.domain/connection/websocket
-#   CENTRIFUGO_TOKEN_HMAC_SECRET=<random>
-#   CENTRIFUGO_API_KEY=<random>
-#   SESSION_SECRET=<32+ chars>
-
-docker compose -f docker-compose.prod.yml up -d --build
+docker compose up --build
 ```
 
-This builds the `production` target (`next build` + `next start`), inlines
-`NEXT_PUBLIC_*` values into the client bundle, drops the dev source mount, and
-sets `NODE_ENV=production`. Because `NEXT_PUBLIC_*` are baked at build time,
-any change to them requires `docker compose -f docker-compose.prod.yml build app`
-— a plain `up -d` will not rebuild the bundle.
+This file includes dev-friendly defaults from [`.env.example`](.env.example).
+Use it for local iteration only; the production compose file remains the
+deployment path.
 
 ## Development workflow
 
@@ -122,6 +114,7 @@ pnpm dev          # Next.js dev server
 pnpm build        # production build
 pnpm lint         # ESLint
 pnpm typecheck    # strict tsc --noEmit
+pnpm verify:ci    # prisma generate + lint + typecheck + unit tests + production build
 pnpm test         # Vitest unit tests
 pnpm db:migrate   # apply committed Prisma migrations
 pnpm db:generate  # regenerate Prisma Client
@@ -129,6 +122,66 @@ pnpm db:studio    # open Prisma Studio
 ```
 
 For end-to-end testing and CI scripts see [`TESTING.md`](TESTING.md).
+
+### Demo and benchmark seeds
+
+Seed the reviewer-friendly social graph from the running app container:
+
+```bash
+docker compose exec app pnpm seed:social
+```
+
+This creates demo users `alice`, `bob`, `carol`, and `dave` with password
+`password1234`, plus accepted/pending/block relationships for the contacts and
+DM flows.
+
+Seed the large-history benchmark fixture:
+
+```bash
+docker compose exec app pnpm seed:benchmark-history
+```
+
+This creates (or tops up) the public room `r4-benchmark-10k` so it contains at
+least 10,000 persisted messages, owned by `bench_admin`.
+
+### Realtime load test (~300 clients)
+
+From the **app** container (uses internal `centrifugo:3080` for WebSocket and HTTP
+API — see `scripts/load-test-realtime.ts`):
+
+```bash
+docker compose exec app pnpm seed:loadtest-users
+docker compose exec app pnpm loadtest:realtime
+```
+
+This seeds users `lt4_000` … `lt4_<N-1>` plus shared room `r4-loadtest-presence`,
+opens `N` concurrent `centrifuge-js` connections with the same subscriptions as
+production (`user:{id}`, `presence`, `room:{conversationId}`), samples Centrifugo
+room presence, publishes one room event to measure fan-out latency, and prints
+JSON metrics (connect / subscribe / delivery percentiles).
+
+Capture a full R4 performance log (benchmark seed + load test) under `test-artifacts/`:
+
+```bash
+docker compose exec app pnpm verify:r4-perf
+```
+
+If `pnpm tsx` or new scripts are missing inside the container, the `app_node_modules`
+named volume can be masking an outdated install. Recreate it (after stopping the
+stack) with `docker volume rm <project>_app_node_modules`, then bring the stack
+back up and run `docker compose exec app pnpm install`.
+
+### Password reset delivery
+
+In development and e2e, password reset requests also append JSON lines to
+`${PASSWORD_RESET_DELIVERY_FILE}` inside the app container. The default path is:
+
+```bash
+/app/uploads/password-reset-deliveries.log
+```
+
+That keeps the API response generic while still giving reviewers and automated
+tests a real dev/test delivery artifact to inspect.
 
 ### Attachments
 

@@ -7,7 +7,7 @@ function msg(overrides: Partial<MessageDto>): MessageDto {
     id: "m",
     conversationId: "c",
     authorId: "u",
-    author: { id: "u", username: "u" },
+    author: { id: "u", username: "u", displayName: null },
     body: "hi",
     createdAt: new Date().toISOString(),
     editedAt: null,

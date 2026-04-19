@@ -1,6 +1,6 @@
 services:
   traefik:
-    image: traefik:v3.3
+    image: traefik:v3.6
     command:
       - "--providers.docker=true"
       - "--providers.docker.exposedbydefault=false"
@@ -76,7 +76,9 @@ services:
       CENTRIFUGO_URL: "${CENTRIFUGO_URL:-http://centrifugo:3080}"
       NEXT_PUBLIC_CENTRIFUGO_WS_URL: "${NEXT_PUBLIC_CENTRIFUGO_WS_URL:-ws://localhost:${TRAEFIK_BIND_PORT:-3080}/connection/websocket}"
       SESSION_SECRET: "${SESSION_SECRET:-dev-session-secret-change-me-32chars!!}"
+      SESSION_COOKIE_DOMAIN: "${SESSION_COOKIE_DOMAIN:-}"
       UPLOADS_DIR: "${UPLOADS_DIR:-/app/uploads}"
+      PASSWORD_RESET_DELIVERY_FILE: "${PASSWORD_RESET_DELIVERY_FILE:-/app/uploads/password-reset-deliveries.log}"
       LOG_LEVEL: "${LOG_LEVEL:-info}"
       NODE_ENV: "development"
       PORT: "3080"

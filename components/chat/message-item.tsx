@@ -118,6 +118,7 @@ export function MessageItem({
   const [isFlashing, setIsFlashing] = useState(false);
   const editRef = useRef<HTMLTextAreaElement | null>(null);
   const rootRef = useRef<HTMLDivElement | null>(null);
+  const authorLabel = message.author.displayName ?? message.author.username;
 
   const isAuthor = me?.id === message.authorId;
   const deleted = message.deleted;
@@ -180,11 +181,11 @@ export function MessageItem({
   const startReply = useCallback(() => {
     setReply(message.conversationId, {
       id: message.id,
-      authorUsername: message.author.username,
+      authorUsername: authorLabel,
       bodyPreview: (message.body ?? "").slice(0, 140),
     });
   }, [
-    message.author.username,
+    authorLabel,
     message.body,
     message.conversationId,
     message.id,
@@ -212,7 +213,7 @@ export function MessageItem({
       <div className="flex items-start gap-3">
         <UserAvatar
           userId={message.authorId}
-          username={message.author.username}
+          username={authorLabel}
           size={32}
           className="mt-0.5"
         />
@@ -223,7 +224,7 @@ export function MessageItem({
               className="font-semibold text-foreground"
               data-testid="message-author"
             >
-              {message.author.username}
+              {authorLabel}
             </span>
             <span className="text-[10px] text-muted-foreground">
               {new Date(message.createdAt).toLocaleString()}
@@ -250,7 +251,8 @@ export function MessageItem({
               ) : (
                 <>
                   <span className="font-medium">
-                    {message.replyTo.authorUsername}
+                    {message.replyTo.authorDisplayName ??
+                      message.replyTo.authorUsername}
                   </span>
                   <span className="ml-2 text-muted-foreground">
                     {message.replyTo.bodyPreview ?? ""}

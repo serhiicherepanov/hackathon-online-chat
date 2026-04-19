@@ -1,5 +1,13 @@
 import { describe, it, expect } from "vitest";
-import { registerBody, signInBody } from "./auth";
+import {
+  deleteAccountBody,
+  passwordChangeBody,
+  passwordResetConfirmBody,
+  passwordResetRequestBody,
+  profileUpdateBody,
+  registerBody,
+  signInBody,
+} from "./auth";
 
 describe("registerBody", () => {
   it("accepts a valid payload", () => {
@@ -48,6 +56,70 @@ describe("signInBody", () => {
 
   it("rejects empty fields", () => {
     expect(signInBody.safeParse({ login: "", password: "" }).success).toBe(
+      false,
+    );
+  });
+});
+
+describe("password reset validation", () => {
+  it("accepts a valid reset request email", () => {
+    expect(
+      passwordResetRequestBody.safeParse({ email: "alice@example.com" }).success,
+    ).toBe(true);
+  });
+
+  it("requires a token and a valid replacement password", () => {
+    expect(
+      passwordResetConfirmBody.safeParse({
+        token: "abc123",
+        password: "supersecret",
+      }).success,
+    ).toBe(true);
+    expect(
+      passwordResetConfirmBody.safeParse({
+        token: "",
+        password: "short",
+      }).success,
+    ).toBe(false);
+  });
+});
+
+describe("passwordChangeBody", () => {
+  it("accepts the current and new password", () => {
+    expect(
+      passwordChangeBody.safeParse({
+        currentPassword: "oldpassword",
+        newPassword: "newpassword123",
+      }).success,
+    ).toBe(true);
+  });
+});
+
+describe("profileUpdateBody", () => {
+  it("accepts display name updates", () => {
+    expect(
+      profileUpdateBody.safeParse({ displayName: "Alice Example" }).success,
+    ).toBe(true);
+  });
+
+  it("accepts avatar removal with null", () => {
+    expect(profileUpdateBody.safeParse({ avatarUrl: null }).success).toBe(true);
+  });
+
+  it("rejects empty updates", () => {
+    expect(profileUpdateBody.safeParse({}).success).toBe(false);
+  });
+});
+
+describe("deleteAccountBody", () => {
+  it("requires the username and confirmation phrase", () => {
+    expect(
+      deleteAccountBody.safeParse({
+        username: "alice",
+        confirmation: "DELETE MY ACCOUNT",
+      }).success,
+    ).toBe(true);
+    expect(deleteAccountBody.safeParse({ username: "", confirmation: "" }).success).toBe(
       false,
     );
   });

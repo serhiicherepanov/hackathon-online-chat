@@ -19,7 +19,7 @@ Architecture baseline: [`AGENTS.md`](../../AGENTS.md).
 | [R1 — Rich Messaging](r1-rich-messaging.md) | Attachments (files + images), reply, edit, delete, multiline, emoji | done |
 | [R2 — Social & Presence](r2-social-presence.md) | Friends, blocks with frozen DMs, AFK/multi-tab, typing indicators | done |
 | [R3 — Moderation & Admin](r3-moderation.md) | Roles, bans, invitations, Manage Room modal, owner-only actions | done |
-| [R4 — Polish & Submission](r4-polish-scale.md) | Password reset, delete account, active sessions UI, 10k-message perf, 300-client load test, README, seed | planned |
+| [R4 — Polish & Submission](r4-polish-scale.md) | Password reset, delete account, active sessions UI, 10k-message perf, 300-client load test, README, seed | done |
 | [R5 — Advanced (stretch)](r5-advanced.md) | Multi-node Centrifugo + Redis, bot/integration API, realtime admin dashboards | stretch |
 
 ## Release-to-demo script
@@ -30,7 +30,7 @@ After each release the reviewer should be able to:
 - **R1** — send an image by paste, a 15 MB file, reply to a message, edit and delete own message.
 - **R2** — send a friend request, accept it, block a user (frozen DM), go AFK in two tabs, see typing.
 - **R3** — create a private room, invite a user, make an admin, ban a member, delete a room.
-- **R4** — reset password, delete account (cascades), watch load-test dashboard hold 300 clients under 3 s p95.
+- **R4** — reset password, delete account (cascades), run realtime load test (`pnpm loadtest:realtime`) for ~300 clients and check JSON latency metrics.
 
 ## Conventions
 

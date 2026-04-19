@@ -3,9 +3,7 @@
 ## Purpose
 
 Defines the baseline application skeleton for the hackathon online chat: a one-command Docker Compose boot that brings up the Next.js app, PostgreSQL, and Centrifugo; Prisma ORM wiring with an initial migration; Centrifugo token-authenticated connectivity; client provider wiring (TanStack Query, Centrifugo client, Zustand, React Virtuoso); a Tailwind + shadcn/ui UI toolkit; a landing page and health endpoint; live reload during development; JSON structured logging; and a README that accurately reflects the delivered setup. This capability is the foundation all subsequent chat features build on.
-
 ## Requirements
-
 ### Requirement: One-command stack boot
 
 The repository SHALL boot the full application stack — Next.js app, PostgreSQL database, and Centrifugo — with a single `docker compose up` command run from the repository root, with no manual migration, seeding, or configuration step required on a fresh clone.
@@ -170,3 +168,20 @@ The application SHALL emit all log output as single-line JSON records using a sh
 - **THEN** every command shown works against the current `HEAD` without modification
 - **AND** the documented service URLs (`http://localhost:3000`, Centrifugo WS URL, Postgres port) match what `docker-compose.yml` actually exposes
 - **AND** the "Environment variables" section lists exactly the variables in `.env.example`
+
+### Requirement: Stack startup exposes submission-ready health signals
+The repository SHALL expose health/readiness signals that let automation and reviewers determine when the app stack is actually ready for use, not merely when the containers have started.
+
+#### Scenario: Health endpoint reflects application readiness
+- **WHEN** the documented health check is called after `docker compose up`
+- **THEN** it reports success only after the app can reach its required backing services and serve authenticated product routes
+- **AND** the compose stack includes corresponding health/readiness wiring for the services it depends on
+
+### Requirement: Reviewer bootstrap flow includes seed/demo guidance
+The repository SHALL document and ship the bootstrap path needed to prepare a reviewer-friendly environment, including any seed/demo data commands and the expected access URL.
+
+#### Scenario: Bootstrap guidance is discoverable in-repo
+- **WHEN** a reviewer inspects the root project documentation
+- **THEN** they can identify the exact URL, commands, and seed/bootstrap steps needed to open the app and begin the release demo
+- **AND** the documented flow matches the current compose files and application startup behavior
+

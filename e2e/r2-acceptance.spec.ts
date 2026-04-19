@@ -204,14 +204,24 @@ test.describe("R2 acceptance (social graph)", () => {
       );
       expect(blockedAttempt.status()).toBe(403);
 
-      await pageB.getByPlaceholder("Message").fill("blocked from UI");
-      await pageB.getByRole("button", { name: "Send" }).click();
-      await expect(pageB.getByText("Could not send message.")).toBeVisible();
+      await pageB.reload();
+      await expect(pageB.getByTestId("dm-frozen-banner")).toBeVisible({
+        timeout: 15_000,
+      });
+      await expect(pageB.getByTestId("composer-root")).toHaveAttribute(
+        "data-disabled",
+        "true",
+      );
+      await expect(pageB.getByPlaceholder("Message")).toHaveCount(0);
 
       const unblockRes = await apiA.delete(`/api/blocks/${userB.id}`);
       expect(unblockRes.status()).toBe(204);
 
       const afterUnblock = `after-unblock-${Date.now()}`;
+      await pageB.reload();
+      await expect(pageB.getByPlaceholder("Message")).toBeVisible({
+        timeout: 15_000,
+      });
       await pageB.getByPlaceholder("Message").fill(afterUnblock);
       await pageB.getByRole("button", { name: "Send" }).click();
       await expect(pageA.getByText(afterUnblock, { exact: true })).toBeVisible({

@@ -17,7 +17,7 @@ export default function HomePage() {
       <main className="relative z-10 mx-auto flex min-h-screen max-w-3xl flex-col justify-center gap-8 px-6 py-12">
         <div className="space-y-4">
           <p className="text-sm font-medium uppercase tracking-widest text-primary">
-            Hackathon · R0 MVP
+            Hackathon · R4 polish
           </p>
           <h1 className="text-5xl font-bold tracking-tight text-foreground">
             Online Chat
@@ -25,7 +25,7 @@ export default function HomePage() {
           <p className="text-lg leading-relaxed text-muted-foreground">
             A classic web chat — rooms, DMs, contacts, files, moderation — built on
             Next.js 15, PostgreSQL, and Centrifugo. This landing page confirms the
-            stack booted.
+            stack booted and points reviewers to the main R4 flows.
           </p>
         </div>
 
@@ -53,6 +53,12 @@ export default function HomePage() {
             className="rounded-xl border border-border/50 bg-card/60 backdrop-blur-sm px-6 py-3 text-sm font-medium shadow-sm transition-all hover:bg-accent hover:shadow-md active:scale-[0.98]"
           >
             Stack check
+          </Link>
+          <Link
+            href="/forgot-password"
+            className="rounded-xl border border-border/50 bg-card/60 backdrop-blur-sm px-6 py-3 text-sm font-medium shadow-sm transition-all hover:bg-accent hover:shadow-md active:scale-[0.98]"
+          >
+            Reset password
           </Link>
         </div>
 

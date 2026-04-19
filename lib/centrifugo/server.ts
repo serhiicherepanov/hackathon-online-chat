@@ -1,10 +1,10 @@
 import { logger } from "@/lib/logger";
+import { centrifugoHttpApiUrl } from "./http-api-url";
 
-const baseUrl = () => process.env.CENTRIFUGO_URL ?? "http://localhost:3080";
 const apiKey = () => process.env.CENTRIFUGO_API_KEY ?? "";
 
 async function centrifugoPost(path: string, body: unknown): Promise<Response> {
-  return fetch(`${baseUrl()}${path}`, {
+  return fetch(centrifugoHttpApiUrl(path), {
     method: "POST",
     headers: {
       "Content-Type": "application/json",

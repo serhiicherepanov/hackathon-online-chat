@@ -3,6 +3,7 @@ import type { SessionOptions } from "iron-session";
 export const SESSION_COOKIE_NAME = "chat_session";
 
 export function getSessionOptions(): SessionOptions {
+  const cookieDomain = process.env.SESSION_COOKIE_DOMAIN?.trim() || undefined;
   const password =
     process.env.SESSION_SECRET ||
     (process.env.NODE_ENV !== "production"
@@ -18,6 +19,7 @@ export function getSessionOptions(): SessionOptions {
       httpOnly: true,
       secure: process.env.NODE_ENV === "production",
       sameSite: "lax",
+      domain: cookieDomain,
       path: "/",
       maxAge: 60 * 60 * 24 * 365,
     },

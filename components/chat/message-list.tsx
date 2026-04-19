@@ -91,11 +91,19 @@ export function MessageList({
       className="relative flex min-h-0 flex-1 flex-col"
       data-testid="message-list-root"
     >
+      {items.length === 0 ? (
+        <div className="flex h-full items-center justify-center p-6">
+          <div className="rounded-xl border border-dashed px-6 py-8 text-center text-sm text-muted-foreground">
+            No messages yet. Start the conversation.
+          </div>
+        </div>
+      ) : null}
       <div className="h-full min-h-0" data-testid="message-scroller">
         <Virtuoso
           className="h-full min-h-0"
           ref={virtuosoRef}
           data={items}
+        style={items.length === 0 ? { display: "none" } : undefined}
         initialTopMostItemIndex={Math.max(0, items.length - 1)}
         followOutput={atBottom ? "smooth" : false}
         atBottomStateChange={(bottom) => {

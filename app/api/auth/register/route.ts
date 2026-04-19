@@ -1,6 +1,7 @@
 import { Prisma } from "@prisma/client";
 import { NextResponse } from "next/server";
 import { hashPassword } from "@/lib/auth/password";
+import { serializeAuthUser } from "@/lib/auth/serialize";
 import { createBrowserSession } from "@/lib/auth/session";
 import { clientMeta } from "@/lib/http/client-meta";
 import { prisma } from "@/lib/prisma";
@@ -41,14 +42,21 @@ export async function POST(req: Request) {
   try {
     const user = await prisma.user.create({
       data: { email, username, passwordHash },
-      select: { id: true, email: true, username: true, createdAt: true },
+      select: {
+        id: true,
+        email: true,
+        username: true,
+        displayName: true,
+        avatarUrl: true,
+        createdAt: true,
+      },
     });
     await createBrowserSession({
       userId: user.id,
       userAgent: meta.userAgent,
       ip: meta.ip,
     });
-    return NextResponse.json({ user }, { status: 201 });
+    return NextResponse.json({ user: serializeAuthUser(user) }, { status: 201 });
   } catch (e) {
     if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === "P2002") {
       return NextResponse.json({ error: "unique_violation" }, { status: 409 });

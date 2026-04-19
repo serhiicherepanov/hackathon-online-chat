@@ -1,7 +1,7 @@
 import { cookies } from "next/headers";
 import { getIronSession } from "iron-session";
 import type { IronSession } from "iron-session";
-import type { User } from "@prisma/client";
+import type { Session, User } from "@prisma/client";
 import { createHash, randomBytes } from "node:crypto";
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
@@ -18,6 +18,16 @@ function hashToken(token: string): string {
 export async function getIronSessionCookie(): Promise<IronSession<SessionData>> {
   const cookieStore = await cookies();
   return getIronSession<SessionData>(cookieStore, getSessionOptions());
+}
+
+async function getStoredSessionToken(): Promise<string | null> {
+  const session = await getIronSessionCookie();
+  return session.token ?? null;
+}
+
+export async function getCurrentSessionTokenHash(): Promise<string | null> {
+  const token = await getStoredSessionToken();
+  return token ? hashToken(token) : null;
 }
 
 export async function createBrowserSession(input: {
@@ -40,24 +50,31 @@ export async function createBrowserSession(input: {
   await session.save();
 }
 
-export async function resolveSessionUser(): Promise<User | null> {
-  const session = await getIronSessionCookie();
-  const token = session.token;
-  if (!token) return null;
-  const tokenHash = hashToken(token);
-  const row = await prisma.session.findUnique({
+export async function resolveBrowserSessionRecord(): Promise<
+  (Session & { user: User }) | null
+> {
+  const tokenHash = await getCurrentSessionTokenHash();
+  if (!tokenHash) return null;
+
+  return prisma.session.findUnique({
     where: { tokenHash },
     include: { user: true },
   });
-  if (!row) return null;
-  return row.user;
+}
+
+export async function getCurrentSessionId(): Promise<string | null> {
+  const row = await resolveBrowserSessionRecord();
+  return row?.id ?? null;
+}
+
+export async function resolveSessionUser(): Promise<User | null> {
+  const row = await resolveBrowserSessionRecord();
+  return row?.user ?? null;
 }
 
 export async function touchSessionLastSeen(): Promise<void> {
-  const session = await getIronSessionCookie();
-  const token = session.token;
-  if (!token) return;
-  const tokenHash = hashToken(token);
+  const tokenHash = await getCurrentSessionTokenHash();
+  if (!tokenHash) return;
   await prisma.session.updateMany({
     where: { tokenHash },
     data: { lastSeenAt: new Date() },
