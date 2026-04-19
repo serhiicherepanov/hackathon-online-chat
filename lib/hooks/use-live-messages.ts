@@ -182,13 +182,21 @@ export function useLiveMessages(
       }
     };
 
+    const onSubscribed = () => {
+      void queryClient.invalidateQueries({ queryKey: key });
+    };
+
     sub.on("publication", onPublication);
+    sub.on("subscribed", onSubscribed);
     if (sub.state !== "subscribed" && sub.state !== "subscribing") {
       sub.subscribe();
+    } else if (sub.state === "subscribed") {
+      onSubscribed();
     }
 
     return () => {
       sub.off("publication", onPublication);
+      sub.off("subscribed", onSubscribed);
     };
   }, [channel, client, conversationId, queryClient]);
 }
