@@ -1,5 +1,18 @@
 ## ADDED Requirements
 
+### Requirement: Message authors are visually identifiable
+The conversation view SHALL make message authors easy to scan by rendering a deterministic avatar next to each message and by using stronger visual contrast for the displayed username than the surrounding secondary metadata. Avatar rendering SHALL be deterministic for the same user across sessions and room reloads.
+
+#### Scenario: Message row shows a deterministic avatar
+- **WHEN** a message row is rendered for a given author
+- **THEN** it includes an avatar generated from stable author identity data
+- **AND** the same author renders the same avatar again after the conversation reloads
+
+#### Scenario: Username is more prominent than metadata
+- **WHEN** a message row renders the author username together with timestamp or edited-state metadata
+- **THEN** the username uses stronger contrast than the surrounding secondary metadata
+- **AND** the author label remains easy to distinguish while scanning a busy message thread
+
 ### Requirement: Message rows use compact contextual actions
 The conversation view SHALL keep message actions visually secondary until the user interacts with a message. Each message row SHALL reveal a single-row, icon-only action toolbar on hover and on keyboard focus within the row, while lower-frequency actions remain available from the existing overflow menu. Highlighted message rows SHALL use a visibly stronger contrast than the default background.
 

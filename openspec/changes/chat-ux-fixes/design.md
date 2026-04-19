@@ -1,21 +1,22 @@
 ## Context
 
-The current app already has the major product flows in place, but several common chat interactions still create friction: unread badges resize list rows as counts change, message-level affordances compete with the content, the composer border feels too heavy, and inline edit mode can leave the active message partially off-screen. There is also one missing shortcut path in the room members panel: sending a friend request to a visible user without leaving the room.
+The current app already has the major product flows in place, but several common chat interactions still create friction: unread badges resize list rows as counts change, message-level affordances compete with the content, author identity in the chat thread is harder to scan than it should be, the composer border feels too heavy, and inline edit mode can leave the active message partially off-screen. There is also one missing shortcut path in the room members panel: sending a friend request to a visible user without leaving the room.
 
 This change is intentionally a UX consolidation pass rather than a feature release. Most work stays inside the existing Next.js client surface (`components/app/*`, hooks, and shared UI primitives), but it crosses multiple app areas at once:
 
 - sidebar conversation rows and unread badges,
-- message list item chrome and highlight treatment,
+- message list item chrome, author identity, avatar, and highlight treatment,
 - composer keyboard/edit orchestration,
 - room members list actions,
 - social-graph mutation entry points,
-- dependency management for clipboard behavior.
+- dependency management for clipboard behavior and avatars.
 
 ## Goals / Non-Goals
 
 **Goals:**
 - Keep sidebar row height visually stable regardless of unread count width.
 - Make unread and highlighted states noticeably easier to scan.
+- Make message authors easier to identify by increasing username contrast and showing deterministic avatars beside chat messages.
 - Reduce per-message visual noise by moving actions to a hover-only icon row with overflow preserved behind the existing menu.
 - Make message editing feel anchored by scrolling the editable row into a predictable viewport position and exposing `ArrowUp` as the first composer hotkey for "edit my last message".
 - Let users copy surfaced ids with one click and immediate feedback.
@@ -53,7 +54,15 @@ Primary actions should render as icon-only buttons on a single row that appears 
 
 Alternative considered: always-visible icons with smaller labels. Rejected because it still adds noise to every row and does not solve density.
 
-### D5. Drive `ArrowUp` editing from the loaded message list state
+### D5. Use deterministic SVG avatars from `boring-avatars`
+
+Message rows should render a generated avatar derived from stable user identity data so every author is visually identifiable without requiring uploaded profile photos. `boring-avatars` fits this well because it is a small React package that renders deterministic SVG avatars from a `name` seed and configurable `variant`, `size`, `colors`, and `square` props.
+
+For chat usage, the avatar seed should prefer a stable identifier (`user.id`) so avatar appearance does not unexpectedly change when a user renames display-facing fields later. The visible label should still use the username. A thin local wrapper component can centralize the palette, variant, sizing, and accessibility label so message rows and any future member/user surfaces stay consistent.
+
+Alternative considered: build a custom initials/avatar fallback locally. Rejected because the generated SVG approach gives faster visual differentiation between users and avoids inventing another design system surface.
+
+### D6. Drive `ArrowUp` editing from the loaded message list state
 
 When the composer is empty and the caret is at the start, pressing `ArrowUp` should locate the most recent editable message authored by the caller in the active, already-loaded conversation state and enter inline edit mode for that message. If no editable message is loaded, the key should do nothing.
 
@@ -61,7 +70,7 @@ This keeps the shortcut deterministic, avoids any new "latest editable message" 
 
 Alternative considered: ask the server for the latest editable message on demand. Rejected because it adds latency, extra API surface, and disagreement risk with the currently loaded list.
 
-### D6. Reuse the existing friend-request mutation from room member rows
+### D7. Reuse the existing friend-request mutation from room member rows
 
 The room members list should expose an "Add friend" contextual action only when the visible user is not already a friend, not pending, and not the caller. The action should call the same friend-request mutation used on the contacts page and reflect the resulting pending state in-place.
 
@@ -70,15 +79,17 @@ Alternative considered: new dedicated room-member invite endpoint. Rejected beca
 ## Risks / Trade-offs
 
 - Hover-only message actions can reduce discoverability -> Mitigation: reveal on hover and `focus-within`, keep the dots menu recognizable, and use standard action icons.
+- More prominent usernames plus avatars can increase row density pressure -> Mitigation: keep avatar sizing compact and raise contrast with typography/color rather than larger layout blocks.
 - `ArrowUp` edit can conflict with multiline caret expectations -> Mitigation: only trigger when the composer is empty (or otherwise at the shortcut-safe empty state), leaving normal textarea navigation untouched once content exists.
 - Adding a clipboard dependency slightly increases bundle size -> Mitigation: choose a small, focused library and use it only on the affected interactive elements.
+- Adding an avatar dependency slightly increases bundle size -> Mitigation: use the small SVG-only `boring-avatars` package through a single wrapper and only in author surfaces that benefit from it.
 - Room-member friend actions may need extra relationship hints from existing queries -> Mitigation: prefer enriching current room-members/social queries over creating a separate fetch path.
 
 ## Migration Plan
 
-1. Add the clipboard dependency and wire a shared copy interaction helper if needed.
+1. Add the clipboard dependency and `boring-avatars`, then wire small shared helpers/components where needed.
 2. Update sidebar row and badge rendering so unread changes no longer affect item height.
-3. Refine message row presentation: stronger highlight state, hover/focus action toolbar, overflow menu retention.
+3. Refine message row presentation: stronger author identity contrast, deterministic avatars, stronger highlight state, hover/focus action toolbar, and overflow menu retention.
 4. Update composer/edit orchestration for lighter borders, bottom-aligned edit entry, and `ArrowUp` last-message editing.
 5. Extend room member rows with relationship-aware friend invite actions backed by the existing social mutation.
 6. Add targeted unit/e2e coverage for the new UX contracts.
