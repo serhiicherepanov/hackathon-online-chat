@@ -86,6 +86,7 @@ defaults.
 | `CENTRIFUGO_URL`                | Centrifugo HTTP API URL (container network)         |
 | `NEXT_PUBLIC_CENTRIFUGO_WS_URL` | WebSocket URL used by the browser                   |
 | `SESSION_SECRET`                | iron-session password (≥ 32 chars in production)    |
+| `SESSION_COOKIE_DOMAIN`         | Optional shared cookie domain, e.g. `.example.com` |
 | `UPLOADS_DIR`                   | Path for uploaded files                             |
 | `LOG_LEVEL`                     | pino log level (default `info`)                     |
 
@@ -101,6 +102,7 @@ self-contained [`docker-compose.prod.yml`](docker-compose.prod.yml):
 #   CENTRIFUGO_TOKEN_HMAC_SECRET=<random>
 #   CENTRIFUGO_API_KEY=<random>
 #   SESSION_SECRET=<32+ chars>
+#   SESSION_COOKIE_DOMAIN=.digitalspace.studio  # optional, for shared subdomains
 
 docker compose -f docker-compose.prod.yml up -d --build
 ```

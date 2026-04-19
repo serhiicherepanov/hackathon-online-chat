@@ -92,6 +92,7 @@ services:
       CENTRIFUGO_URL: "${CENTRIFUGO_URL:-http://centrifugo:3080}"
       NEXT_PUBLIC_CENTRIFUGO_WS_URL: "${NEXT_PUBLIC_CENTRIFUGO_WS_URL}"
       SESSION_SECRET: "${SESSION_SECRET:?set SESSION_SECRET to a 32+ char random value}"
+      SESSION_COOKIE_DOMAIN: "${SESSION_COOKIE_DOMAIN:-}"
       UPLOADS_DIR: "${UPLOADS_DIR:-/app/uploads}"
       LOG_LEVEL: "${LOG_LEVEL:-info}"
       NODE_ENV: "production"
