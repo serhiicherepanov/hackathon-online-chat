@@ -6,8 +6,14 @@ import { useCallback, useId, useRef, useState } from "react";
 import TextareaAutosize from "react-textarea-autosize";
 import { Button } from "@/components/ui/button";
 import { EmojiPopover } from "./emoji-popover";
+import {
+  findLatestEditableMessageId,
+  type CachedMessagePages,
+} from "@/lib/chat/find-latest-editable";
+import { useAuthStore } from "@/lib/stores/auth-store";
 import { useComposerStore } from "@/lib/stores/composer-store";
 import type { ReplyTarget, StagedAttachment } from "@/lib/stores/composer-store";
+import { useMessageInteractionStore } from "@/lib/stores/message-interaction-store";
 import type { MessageDto } from "@/lib/types/chat";
 
 const MAX_FILE = 20 * 1024 * 1024;
@@ -64,6 +70,17 @@ export function MessageComposer({
   const clearStaged = useComposerStore((s) => s.clearStaged);
   const clearReply = useComposerStore((s) => s.clearReplyTarget);
   const queryClient = useQueryClient();
+  const selfUserId = useAuthStore((s) => s.user?.id ?? null);
+  const requestEdit = useMessageInteractionStore((s) => s.requestEdit);
+
+  const resolveLatestEditableId = useCallback((): string | null => {
+    const cache = queryClient.getQueryData<CachedMessagePages>([
+      "conv",
+      conversationId,
+      "messages",
+    ]);
+    return findLatestEditableMessageId(cache, selfUserId);
+  }, [conversationId, queryClient, selfUserId]);
 
   const uploadFile = useCallback(
     async (file: File) => {
@@ -340,12 +357,18 @@ export function MessageComposer({
               void send();
             } else if (e.key === "Escape") {
               if (convState.replyTarget) clearReply(conversationId);
+            } else if (e.key === "ArrowUp" && text.length === 0) {
+              const latestId = resolveLatestEditableId();
+              if (latestId) {
+                e.preventDefault();
+                requestEdit(latestId);
+              }
             }
           }}
           placeholder="Message"
           minRows={1}
           maxRows={8}
-          className="flex min-h-[44px] w-full resize-none rounded-xl border border-input bg-background/60 px-4 py-3 text-sm shadow-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:border-primary/50 transition-all"
+          className="flex min-h-[44px] w-full resize-none rounded-xl border border-border/60 bg-background px-4 py-3 text-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:border-primary/60 transition-colors"
           data-testid="composer-input"
         />
         <Button type="submit" disabled={sending} data-testid="composer-send-btn">

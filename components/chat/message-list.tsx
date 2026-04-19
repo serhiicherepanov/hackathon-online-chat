@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { MessageItem } from "@/components/chat/message-item";
 import { reportError } from "@/lib/report-error";
+import { useMessageInteractionStore } from "@/lib/stores/message-interaction-store";
 import type { MessageDto } from "@/lib/types/chat";
 
 type MessageListProps = {
@@ -68,18 +69,21 @@ export function MessageList({
 
   const items = useMemo(() => messages, [messages]);
 
+  const flashMessage = useMessageInteractionStore((s) => s.flashMessage);
+
   const scrollToReply = useCallback(
     async (id: string) => {
       const idx = items.findIndex((m) => m.id === id);
       if (idx >= 0) {
         virtuosoRef.current?.scrollToIndex({ index: idx, align: "center" });
+        window.setTimeout(() => flashMessage(id), 120);
         return;
       }
       if (hasNextPage && !isFetchingNextPage) {
         fetchOlder();
       }
     },
-    [fetchOlder, hasNextPage, isFetchingNextPage, items],
+    [fetchOlder, flashMessage, hasNextPage, isFetchingNextPage, items],
   );
 
   return (

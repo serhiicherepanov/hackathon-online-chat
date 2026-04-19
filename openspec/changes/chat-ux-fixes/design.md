@@ -5,7 +5,7 @@ The current app already has the major product flows in place, but several common
 This change is intentionally a UX consolidation pass rather than a feature release. Most work stays inside the existing Next.js client surface (`components/app/*`, hooks, and shared UI primitives), but it crosses multiple app areas at once:
 
 - sidebar conversation rows and unread badges,
-- message list item chrome, author identity, avatar, and highlight treatment,
+- message list item chrome, author identity, avatar, reply-jump feedback, and highlight treatment,
 - composer keyboard/edit orchestration,
 - room members list actions,
 - social-graph mutation entry points,
@@ -17,6 +17,7 @@ This change is intentionally a UX consolidation pass rather than a feature relea
 - Keep sidebar row height visually stable regardless of unread count width.
 - Make unread and highlighted states noticeably easier to scan.
 - Make message authors easier to identify by increasing username contrast and showing deterministic avatars beside chat messages.
+- Make reply navigation easier to track by briefly flashing the source row after jumping to a replied-to message.
 - Reduce per-message visual noise by moving actions to a hover-only icon row with overflow preserved behind the existing menu.
 - Make message editing feel anchored by scrolling the editable row into a predictable viewport position and exposing `ArrowUp` as the first composer hotkey for "edit my last message".
 - Let users copy surfaced ids with one click and immediate feedback.
@@ -70,7 +71,15 @@ This keeps the shortcut deterministic, avoids any new "latest editable message" 
 
 Alternative considered: ask the server for the latest editable message on demand. Rejected because it adds latency, extra API surface, and disagreement risk with the currently loaded list.
 
-### D7. Reuse the existing friend-request mutation from room member rows
+### D7. Use a timed visual flash after reply-jump navigation
+
+When the user clicks a reply preview and the list scrolls to the source message, the destination row should enter a transient "jumped-to" state that is visually stronger than the default row but short-lived, clearing automatically after about 1 second. This is separate from persistent highlight state so the jump feedback can be obvious without leaving the thread looking sticky or noisy.
+
+The flash should be driven by local client state keyed by message id and timer cleanup rather than by mutating the message data itself. That keeps the effect deterministic, easy to retrigger on repeated jumps, and independent of persistence or realtime payloads.
+
+Alternative considered: reuse the normal highlighted-row state with no timeout. Rejected because the user explicitly needs a brief attention cue after scroll completion, not another persistent background state that must be manually cleared.
+
+### D8. Reuse the existing friend-request mutation from room member rows
 
 The room members list should expose an "Add friend" contextual action only when the visible user is not already a friend, not pending, and not the caller. The action should call the same friend-request mutation used on the contacts page and reflect the resulting pending state in-place.
 
@@ -80,6 +89,7 @@ Alternative considered: new dedicated room-member invite endpoint. Rejected beca
 
 - Hover-only message actions can reduce discoverability -> Mitigation: reveal on hover and `focus-within`, keep the dots menu recognizable, and use standard action icons.
 - More prominent usernames plus avatars can increase row density pressure -> Mitigation: keep avatar sizing compact and raise contrast with typography/color rather than larger layout blocks.
+- A 1-second flash can feel distracting if it is too strong or fires multiple times -> Mitigation: keep the animation subtle, scoped to the destination row only, and reset/restart cleanly on repeated reply clicks.
 - `ArrowUp` edit can conflict with multiline caret expectations -> Mitigation: only trigger when the composer is empty (or otherwise at the shortcut-safe empty state), leaving normal textarea navigation untouched once content exists.
 - Adding a clipboard dependency slightly increases bundle size -> Mitigation: choose a small, focused library and use it only on the affected interactive elements.
 - Adding an avatar dependency slightly increases bundle size -> Mitigation: use the small SVG-only `boring-avatars` package through a single wrapper and only in author surfaces that benefit from it.
@@ -89,7 +99,7 @@ Alternative considered: new dedicated room-member invite endpoint. Rejected beca
 
 1. Add the clipboard dependency and `boring-avatars`, then wire small shared helpers/components where needed.
 2. Update sidebar row and badge rendering so unread changes no longer affect item height.
-3. Refine message row presentation: stronger author identity contrast, deterministic avatars, stronger highlight state, hover/focus action toolbar, and overflow menu retention.
+3. Refine message row presentation: stronger author identity contrast, deterministic avatars, stronger highlight state, reply-jump flash feedback, hover/focus action toolbar, and overflow menu retention.
 4. Update composer/edit orchestration for lighter borders, bottom-aligned edit entry, and `ArrowUp` last-message editing.
 5. Extend room member rows with relationship-aware friend invite actions backed by the existing social mutation.
 6. Add targeted unit/e2e coverage for the new UX contracts.

@@ -31,6 +31,19 @@ The conversation view SHALL keep message actions visually secondary until the us
 - **THEN** the background and/or accent treatment has stronger contrast than the default row styling
 - **AND** the highlighted row remains visually distinct even when adjacent rows contain attachments or hover chrome
 
+### Requirement: Reply-jump navigation briefly flashes the source message
+When the user activates a reply preview that jumps to the replied-to source message, the conversation view SHALL briefly flash the destination row after scrolling completes so the user can immediately spot it. The flash SHALL automatically clear after about 1 second and SHALL be repeatable on subsequent reply jumps to the same source message.
+
+#### Scenario: Reply jump triggers a brief flash on the destination row
+- **WHEN** the user clicks a reply preview and the list scrolls to the source message
+- **THEN** the destination message row enters a visible flash state after the jump
+- **AND** that flash automatically clears after roughly 1 second
+
+#### Scenario: Repeated reply jumps retrigger the flash
+- **WHEN** the user clicks the same reply preview again after the previous flash finished
+- **THEN** the source message flashes again for the same brief duration
+- **AND** the effect remains scoped to the destination row only
+
 ### Requirement: Composer editing shortcuts keep the working area anchored
 The conversation composer SHALL support a first keyboard shortcut for editing: pressing `ArrowUp` while the composer is empty SHALL enter inline edit mode for the caller's most recent editable message in the active loaded conversation. Entering inline edit mode SHALL scroll the active message into view near the bottom working area, and the composer/editor chrome SHALL render as a single subtle border in both idle and focused states.
 

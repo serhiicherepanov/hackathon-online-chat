@@ -13,6 +13,7 @@ import {
   AccordionTrigger,
 } from "@/components/ui/accordion";
 import { Badge } from "@/components/ui/badge";
+import { UnreadBadge } from "@/components/app/unread-badge";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -253,14 +254,14 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                                 key={r.room.id}
                                 href={href}
                                 className={cn(
-                                  "flex items-center justify-between rounded-md px-2 py-1 text-sm hover:bg-accent",
+                                  "flex h-8 items-center gap-2 rounded-md px-2 text-sm hover:bg-accent",
                                   active && "bg-accent",
                                 )}
                               >
-                                <span className="truncate">{r.room.name}</span>
-                                {unread > 0 ? (
-                                  <Badge variant="secondary">{unread}</Badge>
-                                ) : null}
+                                <span className="min-w-0 flex-1 truncate">
+                                  {r.room.name}
+                                </span>
+                                <UnreadBadge count={unread} />
                               </Link>
                             );
                           })}
@@ -395,14 +396,14 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                                 key={c.conversationId}
                                 href={href}
                                 className={cn(
-                                  "flex items-center justify-between rounded-md px-2 py-1 text-sm hover:bg-accent",
+                                  "flex h-8 items-center gap-2 rounded-md px-2 text-sm hover:bg-accent",
                                   active && "bg-accent",
                                 )}
                               >
-                                <span className="truncate">{c.peer.username}</span>
-                                {unread > 0 ? (
-                                  <Badge variant="secondary">{unread}</Badge>
-                                ) : null}
+                                <span className="min-w-0 flex-1 truncate">
+                                  {c.peer.username}
+                                </span>
+                                <UnreadBadge count={unread} />
                               </Link>
                             );
                           })}
