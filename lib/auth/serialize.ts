@@ -1,4 +1,4 @@
-import type { Session, User } from "@prisma/client";
+import type { Session } from "@prisma/client";
 
 export type AuthUserDto = {
   id: string;
@@ -7,6 +7,16 @@ export type AuthUserDto = {
   displayName: string | null;
   avatarUrl: string | null;
   createdAt: string;
+};
+
+/** Shape accepted by {@link serializeAuthUser}; profile fields optional for compatibility with narrowed Prisma payloads. */
+export type SerializeAuthUserInput = {
+  id: string;
+  email: string;
+  username: string;
+  createdAt: Date;
+  displayName?: string | null;
+  avatarUrl?: string | null;
 };
 
 export type SessionSummaryDto = {
@@ -19,25 +29,21 @@ export type SessionSummaryDto = {
   browserLabel: string;
 };
 
-export function getUserDisplayName(
-  user: Pick<User, "displayName" | "username">,
-): string {
+export function getUserDisplayName(user: {
+  username: string;
+  displayName?: string | null;
+}): string {
   const displayName = user.displayName?.trim();
   return displayName && displayName.length > 0 ? displayName : user.username;
 }
 
-export function serializeAuthUser(
-  user: Pick<
-    User,
-    "id" | "email" | "username" | "displayName" | "avatarUrl" | "createdAt"
-  >,
-): AuthUserDto {
+export function serializeAuthUser(user: SerializeAuthUserInput): AuthUserDto {
   return {
     id: user.id,
     email: user.email,
     username: user.username,
-    displayName: user.displayName,
-    avatarUrl: user.avatarUrl,
+    displayName: user.displayName ?? null,
+    avatarUrl: user.avatarUrl ?? null,
     createdAt: user.createdAt.toISOString(),
   };
 }

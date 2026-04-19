@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { centrifugoHttpApiUrl } from "@/lib/centrifugo/http-api-url";
 import { prisma } from "@/lib/prisma";
 import { logger } from "@/lib/logger";
 
@@ -7,15 +8,17 @@ export const dynamic = "force-dynamic";
 
 export async function GET() {
   try {
-    const centrifugoUrl = process.env.CENTRIFUGO_URL;
     const centrifugoApiKey = process.env.CENTRIFUGO_API_KEY;
 
     const [dbReady, centrifugoReady] = await Promise.all([
       prisma.$queryRaw`SELECT 1`.then(() => true),
-      fetch(`${centrifugoUrl}/api/info`, {
+      fetch(centrifugoHttpApiUrl("/api/info"), {
+        method: "POST",
         headers: {
+          "Content-Type": "application/json",
           Authorization: `apikey ${centrifugoApiKey ?? ""}`,
         },
+        body: "{}",
       }).then((res) => res.ok),
     ]);
 

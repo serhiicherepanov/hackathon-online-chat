@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   getUserDisplayName,
+  serializeAuthUser,
   serializeSessionSummary,
   summarizeUserAgent,
 } from "./serialize";
@@ -13,6 +14,26 @@ describe("auth serialization helpers", () => {
     expect(getUserDisplayName({ username: "alice", displayName: null })).toBe(
       "alice",
     );
+    expect(getUserDisplayName({ username: "alice" })).toBe("alice");
+  });
+
+  it("serializes auth user and treats omitted profile fields as null", () => {
+    const createdAt = new Date("2026-04-19T12:00:00.000Z");
+    expect(
+      serializeAuthUser({
+        id: "u1",
+        email: "a@example.com",
+        username: "alice",
+        createdAt,
+      }),
+    ).toEqual({
+      id: "u1",
+      email: "a@example.com",
+      username: "alice",
+      displayName: null,
+      avatarUrl: null,
+      createdAt: "2026-04-19T12:00:00.000Z",
+    });
   });
 
   it("summarizes common browser user agents", () => {

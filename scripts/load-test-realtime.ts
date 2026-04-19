@@ -12,11 +12,13 @@
  *   LOADTEST_ROOM_NAME — must match seed (default r4-loadtest-presence)
  *   LOADTEST_USER_COUNT — how many clients (default 300)
  *   SIGNIN_CONCURRENCY — parallel sign-ins (default 25)
- *   CENTRIFUGO_URL, CENTRIFUGO_API_KEY — publish + presence probe (`http://centrifugo:3080` in Compose)
+ *   CENTRIFUGO_URL, CENTRIFUGO_API_KEY — publish + presence probe (Compose sets the
+ *       internal base; may include a path prefix if Centrifugo is behind Traefik)
  */
 import { PrismaClient } from "@prisma/client";
 import { Centrifuge } from "centrifuge";
 import WebSocket from "ws";
+import { centrifugoHttpApiUrl } from "../lib/centrifugo/http-api-url";
 
 const prisma = new PrismaClient();
 
@@ -196,9 +198,8 @@ function closeClient(c: OpenClient) {
 }
 
 async function centrifugoPublish(channel: string, data: unknown): Promise<void> {
-  const base = process.env.CENTRIFUGO_URL ?? "http://centrifugo:3080";
   const key = process.env.CENTRIFUGO_API_KEY ?? "";
-  const res = await fetch(`${base.replace(/\/$/, "")}/api/publish`, {
+  const res = await fetch(centrifugoHttpApiUrl("/api/publish"), {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -213,9 +214,8 @@ async function centrifugoPublish(channel: string, data: unknown): Promise<void> 
 }
 
 async function centrifugoPresenceCount(channel: string): Promise<number> {
-  const base = process.env.CENTRIFUGO_URL ?? "http://centrifugo:3080";
   const key = process.env.CENTRIFUGO_API_KEY ?? "";
-  const res = await fetch(`${base.replace(/\/$/, "")}/api/presence`, {
+  const res = await fetch(centrifugoHttpApiUrl("/api/presence"), {
     method: "POST",
     headers: {
       "Content-Type": "application/json",

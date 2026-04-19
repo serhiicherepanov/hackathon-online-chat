@@ -84,7 +84,7 @@ defaults.
 | `DATABASE_URL`                  | Prisma connection string (points at `db` service)   |
 | `CENTRIFUGO_TOKEN_HMAC_SECRET`  | HMAC secret for Centrifugo connect tokens           |
 | `CENTRIFUGO_API_KEY`            | Centrifugo HTTP API key for server-to-server calls  |
-| `CENTRIFUGO_URL`                | Centrifugo HTTP API URL (container network)         |
+| `CENTRIFUGO_URL`                | Centrifugo HTTP API base URL (may include a Traefik path prefix if the app calls Centrifugo on a public host) |
 | `NEXT_PUBLIC_CENTRIFUGO_WS_URL` | WebSocket URL used by the browser                   |
 | `SESSION_SECRET`                | iron-session password (≥ 32 chars in production)    |
 | `SESSION_COOKIE_DOMAIN`         | Optional shared cookie domain, e.g. `.example.com` |
