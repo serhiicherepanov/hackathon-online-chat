@@ -4,14 +4,10 @@ import { prisma } from "@/lib/prisma";
 import { getRoomMembership, isRoomAdmin } from "@/lib/rooms/auth";
 import { serializeRoomSummary } from "@/lib/rooms/serialize";
 import {
-  publishMemberBanned,
   publishRoomAccessRevoked,
   unsubscribeUserFromRoomChannel,
 } from "@/lib/realtime/emit";
-import type {
-  MemberBannedPayload,
-  RoomAccessRevokedPayload,
-} from "@/lib/realtime/payloads";
+import type { RoomAccessRevokedPayload } from "@/lib/realtime/payloads";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -46,26 +42,11 @@ export async function DELETE(_req: Request, ctx: Ctx) {
   }
 
   await prisma.$transaction(async (tx) => {
-    await tx.roomBan.upsert({
-      where: { roomId_userId: { roomId: id, userId } },
-      create: {
-        roomId: id,
-        userId,
-        bannedById: gate.user.id,
-      },
-      update: {},
-    });
     await tx.roomMember.delete({
       where: { roomId_userId: { roomId: id, userId } },
     });
   });
 
-  const memberBannedPayload: MemberBannedPayload = {
-    type: "member.banned",
-    conversationId: room.conversationId,
-    roomId: room.id,
-    userId,
-  };
   const accessRevokedPayload: RoomAccessRevokedPayload = {
     type: "room.access.revoked",
     room: serializeRoomSummary(room),
@@ -74,7 +55,6 @@ export async function DELETE(_req: Request, ctx: Ctx) {
   };
 
   void Promise.all([
-    publishMemberBanned(room.conversationId, memberBannedPayload),
     publishRoomAccessRevoked(userId, accessRevokedPayload),
     unsubscribeUserFromRoomChannel(userId, room.conversationId),
   ]).catch(() => undefined);

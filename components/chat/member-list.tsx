@@ -5,24 +5,13 @@ import { Check, Copy, UserPlus } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { UserAvatar } from "@/components/chat/user-avatar";
+import { PRESENCE_LABEL } from "@/lib/avatar";
 import { useContacts, useSendFriendRequest } from "@/lib/hooks/use-contacts";
 import type { MemberRow } from "@/lib/hooks/use-members";
 import { useAuthStore } from "@/lib/stores/auth-store";
 import { usePresenceStore, type PresenceRow } from "@/lib/stores/presence-store";
 import type { PresenceStatus } from "@/lib/realtime/payloads";
 import { cn } from "@/lib/utils";
-
-const STATUS_LABEL: Record<PresenceStatus, string> = {
-  online: "Online",
-  afk: "Away",
-  offline: "Offline",
-};
-
-const STATUS_DOT: Record<PresenceStatus, string> = {
-  online: "bg-emerald-500",
-  afk: "bg-amber-500",
-  offline: "bg-muted-foreground/40",
-};
 
 type RowRelationship = "self" | "friend" | "pending" | "blocked" | "addable";
 
@@ -174,18 +163,19 @@ export function MemberList({ members }: { members: MemberRow[] | undefined }) {
             data-testid={`member-${m.username}`}
             data-presence={status}
             data-relationship={relationship}
-            title={STATUS_LABEL[status]}
+            title={PRESENCE_LABEL[status]}
           >
-            <UserAvatar userId={m.userId} username={m.username} size={28} />
+            <UserAvatar
+              userId={m.userId}
+              username={m.username}
+              avatarUrl={m.avatarUrl}
+              size={28}
+              testId={`member-avatar-${m.userId}`}
+              presence={status}
+              presenceTestId={`member-presence-${m.userId}`}
+            />
             <div className="min-w-0 flex-1">
               <div className="flex items-center gap-2">
-                <span
-                  className={cn(
-                    "inline-block h-2 w-2 rounded-full",
-                    STATUS_DOT[status],
-                  )}
-                  aria-label={STATUS_LABEL[status]}
-                />
                 <span className="truncate font-medium">{m.username}</span>
                 <span className="text-xs text-muted-foreground">
                   ({m.role})

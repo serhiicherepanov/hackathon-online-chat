@@ -21,8 +21,8 @@ const baseFriendship: Friendship = {
 
 const friendshipWithUsers = {
   ...baseFriendship,
-  userA: { id: "u1", username: "alice" },
-  userB: { id: "u2", username: "bob" },
+  userA: { id: "u1", username: "alice", avatarUrl: null },
+  userB: { id: "u2", username: "bob", avatarUrl: "https://cdn.test/bob.png" },
 };
 
 describe("social serializers", () => {
@@ -30,6 +30,7 @@ describe("social serializers", () => {
     expect(getFriendshipPeer(friendshipWithUsers, "u1")).toEqual({
       id: "u2",
       username: "bob",
+      avatarUrl: "https://cdn.test/bob.png",
     });
   });
 
@@ -42,7 +43,11 @@ describe("social serializers", () => {
       ),
     ).toEqual({
       friendshipId: "friendship-1",
-      peer: { id: "u2", username: "bob" },
+      peer: {
+        id: "u2",
+        username: "bob",
+        avatarUrl: "https://cdn.test/bob.png",
+      },
       status: "afk",
       requestedAt: "2026-04-18T12:00:00.000Z",
       updatedAt: "2026-04-18T12:30:00.000Z",

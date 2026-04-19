@@ -214,8 +214,10 @@ export function MessageItem({
         <UserAvatar
           userId={message.authorId}
           username={authorLabel}
+          avatarUrl={message.author.avatarUrl}
           size={32}
           className="mt-0.5"
+          testId={`message-avatar-${message.id}`}
         />
 
         <div className="min-w-0 flex-1">

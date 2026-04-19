@@ -25,7 +25,12 @@ export type MessageDto = {
   editedAt: string | null;
   deletedAt: string | null;
   deleted: boolean;
-  author: { id: string; username: string; displayName: string | null };
+  author: {
+    id: string;
+    username: string;
+    displayName: string | null;
+    avatarUrl: string | null;
+  };
   attachments: AttachmentDto[];
   replyTo: ReplyToDto | null;
   pending?: boolean;

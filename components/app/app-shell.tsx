@@ -14,8 +14,8 @@ import {
   AccordionTrigger,
 } from "@/components/ui/accordion";
 import { Badge } from "@/components/ui/badge";
+import { RoomAvatar, UserAvatar } from "@/components/chat/user-avatar";
 import { UnreadBadge } from "@/components/app/unread-badge";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -37,6 +37,7 @@ import { useContacts } from "@/lib/hooks/use-contacts";
 import { useMyDmContacts } from "@/lib/hooks/use-dm-contacts";
 import { useMyRooms } from "@/lib/hooks/use-my-rooms";
 import { useRoomInvites } from "@/lib/hooks/use-room-invites";
+import { PRESENCE_LABEL } from "@/lib/avatar";
 import { filterByPeerUsername } from "@/lib/social/filter-contacts";
 import type { AuthUser } from "@/lib/stores/auth-store";
 import { useAuthStore } from "@/lib/stores/auth-store";
@@ -46,28 +47,6 @@ import { useUnreadStore } from "@/lib/stores/unread-store";
 import { type PresenceRow, usePresenceStore } from "@/lib/stores/presence-store";
 import type { PresenceStatus } from "@/lib/realtime/payloads";
 import { cn } from "@/lib/utils";
-
-const DM_STATUS_LABEL: Record<PresenceStatus, string> = {
-  online: "Online",
-  afk: "Away",
-  offline: "Offline",
-};
-
-const DM_STATUS_DOT: Record<PresenceStatus, string> = {
-  online: "bg-emerald-500",
-  afk: "bg-amber-500",
-  offline: "bg-muted-foreground/40",
-};
-
-function toInitials(username: string): string {
-  const parts = username
-    .trim()
-    .split(/\s+/)
-    .filter(Boolean)
-    .slice(0, 2);
-  if (parts.length === 0) return "?";
-  return parts.map((part) => part[0]?.toUpperCase() ?? "").join("");
-}
 
 export function AppShell({ children }: { children: React.ReactNode }) {
   const router = useRouter();
@@ -474,32 +453,20 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                                 href={href}
                                 data-testid={`sidebar-dm-row-${c.peer.id}`}
                                 data-presence={status}
-                                title={DM_STATUS_LABEL[status]}
+                                title={PRESENCE_LABEL[status]}
                                 className={cn(
                                   "flex h-9 items-center gap-2 rounded-md px-2 text-sm hover:bg-accent",
                                   active && "bg-accent",
                                 )}
                               >
-                                <Avatar
-                                  className="h-6 w-6"
-                                  data-testid={`sidebar-dm-avatar-${c.peer.id}`}
-                                >
-                                  {c.peer.avatarUrl ? (
-                                    <AvatarImage
-                                      src={c.peer.avatarUrl}
-                                      alt={`${c.peer.username} avatar`}
-                                    />
-                                  ) : null}
-                                  <AvatarFallback className="text-[10px]">
-                                    {toInitials(c.peer.username)}
-                                  </AvatarFallback>
-                                </Avatar>
-                                <span
-                                  className={cn(
-                                    "h-2 w-2 rounded-full",
-                                    DM_STATUS_DOT[status],
-                                  )}
-                                  aria-label={DM_STATUS_LABEL[status]}
+                                <UserAvatar
+                                  userId={c.peer.id}
+                                  username={c.peer.username}
+                                  avatarUrl={c.peer.avatarUrl}
+                                  size={24}
+                                  testId={`sidebar-dm-avatar-${c.peer.id}`}
+                                  presence={status}
+                                  presenceTestId={`sidebar-dm-presence-${c.peer.id}`}
                                 />
                                 <span className="min-w-0 flex-1 truncate">
                                   {c.peer.username}
@@ -587,11 +554,18 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                               <Link
                                 key={r.room.id}
                                 href={href}
+                                data-testid={`sidebar-room-row-${r.room.id}`}
                                 className={cn(
-                                  "flex h-8 items-center gap-2 rounded-md px-2 text-sm hover:bg-accent",
+                                  "flex h-9 items-center gap-2 rounded-md px-2 text-sm hover:bg-accent",
                                   active && "bg-accent",
                                 )}
                               >
+                                <RoomAvatar
+                                  roomId={r.room.id}
+                                  roomName={r.room.name}
+                                  size={24}
+                                  testId={`sidebar-room-avatar-${r.room.id}`}
+                                />
                                 <span className="min-w-0 flex-1 truncate">
                                   {r.room.name}
                                 </span>

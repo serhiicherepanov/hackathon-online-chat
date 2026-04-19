@@ -11,6 +11,11 @@ import { Smile } from "lucide-react";
 
 type Props = { onPick: (emoji: string) => void };
 
+type EmojiClickDetail = {
+  unicode?: string;
+  emoji?: { unicode?: string };
+};
+
 export function EmojiPopover({ onPick }: Props) {
   const hostRef = useRef<HTMLDivElement | null>(null);
   const [open, setOpen] = useState(false);
@@ -24,21 +29,42 @@ export function EmojiPopover({ onPick }: Props) {
     if (!open) return;
     const host = hostRef.current;
     if (!host) return;
-    const handler = (e: Event) => {
-      const detail = (e as CustomEvent).detail as {
-        unicode?: string;
-        emoji?: { unicode?: string };
+
+    let disposed = false;
+    let cleanup: (() => void) | undefined;
+
+    void (async () => {
+      await import("emoji-picker-element");
+      await customElements.whenDefined("emoji-picker");
+      if (disposed) return;
+
+      host.replaceChildren();
+      const picker = document.createElement("emoji-picker");
+      const handler = (e: Event) => {
+        const detail = (e as CustomEvent<EmojiClickDetail>).detail;
+        const unicode = detail?.unicode ?? detail?.emoji?.unicode;
+        if (unicode) {
+          onPick(unicode);
+        }
       };
-      const u = detail?.unicode ?? detail?.emoji?.unicode;
-      if (u) onPick(u);
+
+      picker.addEventListener("emoji-click", handler as EventListener);
+      host.appendChild(picker);
+      cleanup = () => {
+        picker.removeEventListener("emoji-click", handler as EventListener);
+        picker.remove();
+      };
+    })();
+
+    return () => {
+      disposed = true;
+      cleanup?.();
+      host.replaceChildren();
     };
-    host.addEventListener("emoji-click", handler as EventListener);
-    return () =>
-      host.removeEventListener("emoji-click", handler as EventListener);
   }, [onPick, open]);
 
   return (
-    <Popover open={open} onOpenChange={setOpen}>
+    <Popover open={open} onOpenChange={setOpen} modal={false}>
       <PopoverTrigger asChild>
         <Button
           type="button"
@@ -51,7 +77,7 @@ export function EmojiPopover({ onPick }: Props) {
         </Button>
       </PopoverTrigger>
       <PopoverContent className="w-auto p-0" align="end">
-        <div ref={hostRef} dangerouslySetInnerHTML={{ __html: "<emoji-picker></emoji-picker>" }} />
+        <div ref={hostRef} />
       </PopoverContent>
     </Popover>
   );

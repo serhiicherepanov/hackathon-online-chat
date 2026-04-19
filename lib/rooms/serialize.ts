@@ -20,6 +20,7 @@ export type RoomSummaryDto = {
 export type RoomMemberDto = {
   userId: string;
   username: string;
+  avatarUrl: string | null;
   role: RoomMemberRole;
   joinedAt: string;
 };
@@ -56,7 +57,7 @@ type RoomRecord = Pick<
 >;
 
 type RoomMemberRecord = Pick<RoomMember, "userId" | "role" | "joinedAt"> & {
-  user: Pick<User, "username">;
+  user: Pick<User, "username" | "avatarUrl">;
 };
 
 type RoomInviteRecord = Pick<
@@ -87,6 +88,7 @@ export function serializeRoomMember(member: RoomMemberRecord): RoomMemberDto {
   return {
     userId: member.userId,
     username: member.user.username,
+    avatarUrl: member.user.avatarUrl ?? null,
     role: member.role,
     joinedAt: member.joinedAt.toISOString(),
   };
