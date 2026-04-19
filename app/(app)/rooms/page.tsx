@@ -111,6 +111,7 @@ export default function RoomsCatalogPage() {
             {rows.map((r) => (
               <div
                 key={r.id}
+                data-testid="room-card"
                 className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-border/50 bg-card/80 p-4 shadow-sm transition-all hover:shadow-md hover:border-primary/30"
               >
                 <div className="min-w-0">

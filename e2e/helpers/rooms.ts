@@ -15,7 +15,7 @@ export async function searchRoomCatalog(page: Page, query: string) {
 
 export async function joinRoomFromCatalog(page: Page, roomName: string) {
   const card = page
-    .locator(".rounded-md.border")
+    .getByTestId("room-card")
     .filter({ hasText: roomName })
     .first();
   // Wait for the POST /api/rooms/:id/join response before returning. Without
@@ -33,7 +33,7 @@ export async function joinRoomFromCatalog(page: Page, roomName: string) {
 
 export async function openRoomFromCatalog(page: Page, roomName: string) {
   const card = page
-    .locator(".rounded-md.border")
+    .getByTestId("room-card")
     .filter({ hasText: roomName })
     .first();
   await card.getByRole("link", { name: "Open" }).click();

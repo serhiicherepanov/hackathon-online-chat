@@ -285,6 +285,87 @@ test was both added and run successfully. If e2e is blocked by environment or
 infrastructure issues, say so explicitly, keep the task unchecked, and report the
 exact blocker instead of silently skipping it.
 
+### Iterating on a single e2e test (fast local loop)
+
+`./scripts/ci-e2e.sh` does the full pipeline — `docker build` of the production
+image (~60–120 s cold), compose up, health wait, Playwright run, compose down,
+log dump. That's the right signal for "is this branch green?" but it's far too
+expensive when you're iterating on one flaky test or debugging a selector. For
+the fast loop, pay the setup cost **once** and then re-run Playwright directly
+against the still-running prod stack:
+
+1. **Warm the stack once**, pinning to a cheap single test so the script
+ builds + boots and leaves everything running:
+
+ ```bash
+ KEEP_STACK=1 timeout 900 env E2E_ARGS="-g 13.6" ./scripts/ci-e2e.sh \
+   2>&1 | tee test-artifacts/e2e-warm.log | tail -n 5
+ ```
+
+ `KEEP_STACK=1` skips `docker compose down` on exit; the stack stays up on
+ `http://localhost:3080`. `-g 13.6` runs just one short test so the warm-up
+ finishes in seconds after the build — pick any fast test you have. On a
+ subsequent warm-up the Docker layer cache makes the build nearly free.
+
+2. **Iterate** without touching the script. Because the stack is already up
+ and healthy, call Playwright directly and target exactly what you care
+ about. Set `PLAYWRIGHT_BASE_URL` so the config picks up the running prod
+ app:
+
+ ```bash
+ timeout 120 env PLAYWRIGHT_BASE_URL=http://localhost:3080 \
+   pnpm exec playwright test -g "13.2 public room" \
+   2>&1 | tee test-artifacts/e2e-one.log | tail -n 5
+ ```
+
+ Each iteration is bounded by the single-test budget (`timeout: 10_000` in
+ `playwright.config.ts`) — typically 2–10 s instead of the 150+ s a full
+ `ci-e2e.sh` invocation costs.
+
+3. **After editing app code**, rebuild + recreate only the `app` container.
+ Do not restart the whole stack or rebuild from scratch:
+
+ ```bash
+ docker compose -p hackathon-online-chat \
+   -f docker-compose.prod.yml --env-file .env.e2e \
+   build app
+ docker compose -p hackathon-online-chat \
+   -f docker-compose.prod.yml --env-file .env.e2e \
+   up -d app
+ ./scripts/wait-for-health.sh http://localhost:3080 60
+ ```
+
+ Then re-run step 2. The `-p hackathon-online-chat` flag pins the compose
+ project name so the tag matches what `ci-e2e.sh` built in step 1, even
+ when you're in a git worktree whose directory name is not
+ `hackathon-online-chat`.
+
+4. **Tear the stack down** when you're done:
+
+ ```bash
+ docker compose -p hackathon-online-chat \
+   -f docker-compose.prod.yml --env-file .env.e2e \
+   down -v --remove-orphans
+ ```
+
+Rules of thumb for this loop:
+
+- **Never run Playwright against `next dev`** even for one test. Dev-mode
+ lazy route compilation eats 10–20 s on first navigation and will blow the
+ 10 s per-test budget; tests that pass in this mode are not real signal.
+ If you need to work on a route interactively, use `docker compose up -d`
+ (the dev file) in a browser — not in Playwright.
+- **Do not edit `playwright.config.ts` timeouts** to make the fast loop
+ "work" against a slow stack. The 10 s budget is load-bearing against the
+ production build; extending it hides regressions.
+- **This loop is for iteration, not for sign-off.** Before you declare an
+ e2e-related change done, run the full canonical command from the previous
+ section at least once so you exercise the same cold-build path CI does.
+- If you only need to click through flows manually (not in Playwright
+ specs), drive the warm stack with the Playwright MCP tool per the
+ "Debugging a failing e2e / UI issue" section below — that's the fastest
+ way to eyeball a selector or reproduce a race.
+
 What to test (in order of priority):
 
 1. **Pure logic** — Zod schemas in `lib/validation/`, helpers in `lib/utils.ts`, presence/transition reducers in `lib/presence/`, access-check helpers in `lib/conversations/`. These are fast, deterministic, and catch most regressions.
