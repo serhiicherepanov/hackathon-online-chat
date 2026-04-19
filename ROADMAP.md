@@ -13,7 +13,7 @@ Legend: `[x]` done · `[~]` in progress · `[ ]` not started · `[-]` deferred/s
 | [R0 — Demo-able MVP](docs/plan/r0-mvp.md) | Compose, auth, rooms, DMs, realtime text, unread, presence | **done** |
 | [R1 — Rich Messaging](docs/plan/r1-rich-messaging.md) | Attachments, reply, edit, delete, multiline, emoji | **done** |
 | [R2 — Social & Presence](docs/plan/r2-social-presence.md) | Friends, blocks, AFK/multi-tab, typing | **done** |
-| [R3 — Moderation & Admin](docs/plan/r3-moderation.md) | Roles, bans, invitations, Manage Room | not started |
+| [R3 — Moderation & Admin](docs/plan/r3-moderation.md) | Roles, bans, invitations, Manage Room | **done** |
 | [R4 — Polish & Submission](docs/plan/r4-polish-scale.md) | Password reset, account delete, sessions UI, 10k-msg perf, 300-client load test | not started |
 | [R5 — Advanced (stretch)](docs/plan/r5-advanced.md) | Multi-node Centrifugo + Redis, bot API, admin dashboards | stretch |
 
@@ -62,13 +62,13 @@ Legend: `[x]` done · `[~]` in progress · `[ ]` not started · `[-]` deferred/s
 
 ## R3 — Moderation & Admin
 
-- [ ] Room roles: `owner`, `admin`, `member` (admin enabled)
-- [ ] Invitations flow for private rooms
-- [ ] Bans (room-level) + user-level removal; ban-aware file access
-- [ ] Manage Room modal (rename, description, visibility, members, roles)
-- [ ] Owner-only destructive actions: transfer ownership, delete room (cascade messages + attachments)
-- [ ] Admin edit/delete of others' messages
-- [ ] R3 demo script passes end-to-end
+- [x] Room roles: `owner`, `admin`, `member`
+- [x] Invitations flow for private rooms
+- [x] Bans (room-level) + user-level removal; ban-aware file access
+- [x] Manage Room dialog and room header actions (members, admins, banned, invitations, owner-only settings)
+- [x] Owner-only room settings and destructive delete flow (cascade messages + attachments)
+- [x] Admin edit/delete of others' messages
+- [x] R3 demo script passes end-to-end
 
 ## R4 — Polish & Submission
 

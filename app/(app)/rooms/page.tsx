@@ -56,7 +56,7 @@ export default function RoomsCatalogPage() {
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
-      <div className="border-b border-border px-4 py-3">
+      <div className="border-b border-border bg-card/60 backdrop-blur-sm px-5 py-4 shadow-sm">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <h1 className="text-lg font-semibold">Public rooms</h1>
           <Dialog open={open} onOpenChange={setOpen}>
@@ -111,7 +111,8 @@ export default function RoomsCatalogPage() {
             {rows.map((r) => (
               <div
                 key={r.id}
-                className="flex flex-wrap items-center justify-between gap-3 rounded-md border border-border p-3"
+                data-testid="room-card"
+                className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-border/50 bg-card/80 p-4 shadow-sm transition-all hover:shadow-md hover:border-primary/30"
               >
                 <div className="min-w-0">
                   <div className="flex items-center gap-2">

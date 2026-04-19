@@ -3,13 +3,19 @@ import type { Centrifuge, Subscription } from "centrifuge";
 import { useEffect } from "react";
 import type { MessageDto } from "@/lib/types/chat";
 import {
+  memberBannedSchema,
   messageDeletedSchema,
   messageUpdatedSchema,
+  roleChangedSchema,
 } from "@/lib/realtime/payloads";
 import type {
+  MemberBannedPayload,
   MessageCreatedPayload,
   MessageDeletedPayload,
   MessageUpdatedPayload,
+  RoleChangedPayload,
+  RoomDeletedPayload,
+  RoomUpdatedPayload,
 } from "@/lib/realtime/payloads";
 
 type Pages = { pages: { messages: MessageDto[]; nextCursor: string | null }[]; pageParams: unknown[] };
@@ -46,6 +52,10 @@ export function useLiveMessages(
         | MessageCreatedPayload
         | MessageUpdatedPayload
         | MessageDeletedPayload
+        | RoleChangedPayload
+        | MemberBannedPayload
+        | RoomUpdatedPayload
+        | RoomDeletedPayload
         | { type?: string };
       if (!data || typeof data !== "object") return;
 
@@ -53,9 +63,20 @@ export function useLiveMessages(
         const incoming = (data as MessageCreatedPayload).message;
         if ((data as MessageCreatedPayload).conversationId !== conversationId) return;
         queryClient.setQueryData(key, (old: unknown) => {
-          if (!old || typeof old !== "object") return old;
+          if (!old || typeof old !== "object") {
+            return {
+              pages: [{ messages: [incoming as MessageDto], nextCursor: null }],
+              pageParams: [undefined],
+            } satisfies Pages;
+          }
           const o = old as Pages;
-          if (!o.pages?.length) return old;
+          if (!o.pages?.length) {
+            return {
+              ...o,
+              pages: [{ messages: [incoming as MessageDto], nextCursor: null }],
+              pageParams: o.pageParams?.length ? o.pageParams : [undefined],
+            };
+          }
           const first = o.pages[0];
           if (first.messages.some((m) => m.id === incoming.id)) return old;
           return {
@@ -119,15 +140,63 @@ export function useLiveMessages(
         });
         return;
       }
+
+      if (data.type === "role.changed") {
+        const parsed = roleChangedSchema.safeParse(data);
+        if (!parsed.success) return;
+        void Promise.all([
+          queryClient.invalidateQueries({
+            queryKey: ["rooms", parsed.data.roomId, "members"],
+          }),
+          queryClient.invalidateQueries({ queryKey: ["me", "rooms"] }),
+        ]);
+        return;
+      }
+
+      if (data.type === "member.banned") {
+        const parsed = memberBannedSchema.safeParse(data);
+        if (!parsed.success) return;
+        void Promise.all([
+          queryClient.invalidateQueries({
+            queryKey: ["rooms", parsed.data.roomId, "members"],
+          }),
+          queryClient.invalidateQueries({ queryKey: ["me", "rooms"] }),
+        ]);
+        return;
+      }
+
+      if (data.type === "room.updated") {
+        const payload = data as RoomUpdatedPayload;
+        void Promise.all([
+          queryClient.invalidateQueries({ queryKey: ["rooms"] }),
+          queryClient.invalidateQueries({
+            queryKey: ["rooms", payload.room.id, "meta"],
+          }),
+          queryClient.invalidateQueries({ queryKey: ["me", "rooms"] }),
+        ]);
+        return;
+      }
+
+      if (data.type === "room.deleted") {
+        void queryClient.invalidateQueries({ queryKey: ["me", "rooms"] });
+      }
+    };
+
+    const onSubscribed = () => {
+      void queryClient.invalidateQueries({ queryKey: key });
     };
 
     sub.on("publication", onPublication);
+    sub.on("subscribed", onSubscribed);
     if (sub.state !== "subscribed" && sub.state !== "subscribing") {
       sub.subscribe();
+    } else if (sub.state === "subscribed") {
+      onSubscribed();
     }
 
     return () => {
       sub.off("publication", onPublication);
+      sub.off("subscribed", onSubscribed);
     };
   }, [channel, client, conversationId, queryClient]);
 }

@@ -35,8 +35,10 @@ import { useActivityHeartbeat } from "@/lib/hooks/use-activity-heartbeat";
 import { useContacts } from "@/lib/hooks/use-contacts";
 import { useMyDmContacts } from "@/lib/hooks/use-dm-contacts";
 import { useMyRooms } from "@/lib/hooks/use-my-rooms";
+import { useRoomInvites } from "@/lib/hooks/use-room-invites";
 import { filterByPeerUsername } from "@/lib/social/filter-contacts";
 import { useAuthStore } from "@/lib/stores/auth-store";
+import { useToastStore } from "@/lib/stores/toast-store";
 import { useUnreadStore } from "@/lib/stores/unread-store";
 import { cn } from "@/lib/utils";
 
@@ -46,6 +48,8 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const setUser = useAuthStore((s) => s.setUser);
   const user = useAuthStore((s) => s.user);
   const setUnreadFromServer = useUnreadStore((s) => s.setFromServer);
+  const toasts = useToastStore((s) => s.toasts);
+  const removeToast = useToastStore((s) => s.remove);
 
   const me = useQuery({
     queryKey: ["me"],
@@ -76,6 +80,18 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   }, [me.data, setUser]);
 
   useEffect(() => {
+    if (toasts.length === 0) return;
+    const handles = toasts.map((toast) =>
+      window.setTimeout(() => {
+        removeToast(toast.id);
+      }, 4000),
+    );
+    return () => {
+      handles.forEach((handle) => window.clearTimeout(handle));
+    };
+  }, [removeToast, toasts]);
+
+  useEffect(() => {
     void (async () => {
       const res = await fetch("/api/me/unread");
       if (!res.ok) return;
@@ -89,11 +105,13 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   useActivityHeartbeat(Boolean(user?.id));
 
   const myRooms = useMyRooms();
+  const invites = useRoomInvites();
   const dmContacts = useMyDmContacts();
   const unreadMap = useUnreadStore((s) => s.map);
 
   const [dmOpen, setDmOpen] = useState(false);
   const [dmQuery, setDmQuery] = useState("");
+  const [inviteBusyId, setInviteBusyId] = useState<string | null>(null);
   const contacts = useContacts();
   const friends = contacts.data?.friends ?? [];
   const filteredFriends = useMemo(
@@ -122,6 +140,32 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     router.refresh();
   }
 
+  async function acceptInvite(inviteId: string) {
+    setInviteBusyId(inviteId);
+    try {
+      const res = await fetch(`/api/invites/${inviteId}/accept`, { method: "POST" });
+      if (!res.ok) return;
+      const json = (await res.json()) as {
+        room: { id: string };
+      };
+      await Promise.all([invites.refetch(), myRooms.refetch()]);
+      router.push(`/rooms/${json.room.id}`);
+    } finally {
+      setInviteBusyId(null);
+    }
+  }
+
+  async function declineInvite(inviteId: string) {
+    setInviteBusyId(inviteId);
+    try {
+      const res = await fetch(`/api/invites/${inviteId}/decline`, { method: "POST" });
+      if (!res.ok) return;
+      await invites.refetch();
+    } finally {
+      setInviteBusyId(null);
+    }
+  }
+
   const title = useMemo(() => "Online Chat", []);
 
   if (me.isPending) {
@@ -144,7 +188,22 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     <CentrifugeBoundary>
       <CentrifugeProvider userId={user.id}>
         <div className="flex min-h-screen flex-col">
-          <header className="flex items-center justify-between border-b border-border px-4 py-3">
+          <div className="pointer-events-none fixed right-4 top-4 z-50 flex w-80 flex-col gap-2">
+            {toasts.map((toast) => (
+              <div
+                key={toast.id}
+                className="pointer-events-auto rounded-md border bg-background/95 p-3 shadow-lg"
+              >
+                <div className="text-sm font-medium">{toast.title}</div>
+                {toast.description ? (
+                  <div className="mt-1 text-xs text-muted-foreground">
+                    {toast.description}
+                  </div>
+                ) : null}
+              </div>
+            ))}
+          </div>
+          <header className="flex items-center justify-between border-b border-border bg-card/80 backdrop-blur-sm px-4 py-3 shadow-sm">
             <div className="flex items-center gap-3">
               <Link href="/rooms" className="font-semibold">
                 {title}
@@ -171,13 +230,13 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           </header>
 
           <div className="flex min-h-0 flex-1">
-            <aside className="hidden w-80 shrink-0 border-r border-border md:flex md:flex-col">
+            <aside className="hidden w-80 shrink-0 border-r border-border sidebar-bg md:flex md:flex-col">
               <ScrollArea className="h-[calc(100vh-57px)]">
                 <div className="space-y-3 p-3">
                   <Button asChild className="w-full" size="sm" variant="outline">
                     <Link href="/contacts">Contacts</Link>
                   </Button>
-                  <Accordion type="multiple" defaultValue={["rooms", "dms"]}>
+                  <Accordion type="multiple" defaultValue={["rooms", "invites", "dms"]}>
                     <AccordionItem value="rooms">
                       <AccordionTrigger>Rooms</AccordionTrigger>
                       <AccordionContent className="space-y-2">
@@ -206,6 +265,54 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                             );
                           })}
                         </div>
+                      </AccordionContent>
+                    </AccordionItem>
+
+                    <AccordionItem value="invites">
+                      <AccordionTrigger>
+                        <span className="flex items-center gap-2">
+                          Invites
+                          {invites.data?.length ? (
+                            <Badge variant="secondary">{invites.data.length}</Badge>
+                          ) : null}
+                        </span>
+                      </AccordionTrigger>
+                      <AccordionContent className="space-y-2">
+                        {invites.data?.length ? (
+                          invites.data.map((invite) => (
+                            <div
+                              key={invite.id}
+                              className="rounded-md border p-2 text-sm"
+                              data-testid={`room-invite-${invite.id}`}
+                            >
+                              <div className="font-medium">{invite.room.name}</div>
+                              <div className="text-xs text-muted-foreground">
+                                Invited by {invite.inviter.username}
+                              </div>
+                              <div className="mt-2 flex gap-2">
+                                <Button
+                                  size="sm"
+                                  onClick={() => void acceptInvite(invite.id)}
+                                  disabled={inviteBusyId === invite.id}
+                                >
+                                  Accept
+                                </Button>
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  onClick={() => void declineInvite(invite.id)}
+                                  disabled={inviteBusyId === invite.id}
+                                >
+                                  Decline
+                                </Button>
+                              </div>
+                            </div>
+                          ))
+                        ) : (
+                          <p className="text-sm text-muted-foreground">
+                            No pending invites.
+                          </p>
+                        )}
                       </AccordionContent>
                     </AccordionItem>
 

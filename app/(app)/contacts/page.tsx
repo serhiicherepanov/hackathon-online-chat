@@ -19,9 +19,9 @@ import { filterByPeerUsername } from "@/lib/social/filter-contacts";
 import { cn } from "@/lib/utils";
 
 const STATUS_DOT: Record<PresenceStatus, string> = {
-  online: "bg-emerald-500",
-  afk: "bg-amber-500",
-  offline: "bg-muted-foreground/40",
+  online: "bg-emerald-400",
+  afk: "bg-amber-400",
+  offline: "bg-muted-foreground/30",
 };
 
 export default function ContactsPage() {
@@ -148,7 +148,7 @@ export default function ContactsPage() {
             {filteredInbound.map((r) => (
               <li
                 key={r.friendshipId}
-                className="flex items-center justify-between rounded border px-3 py-2 text-sm"
+                className="flex items-center justify-between rounded-xl border border-border/50 bg-card/60 px-4 py-3 text-sm shadow-sm"
               >
                 <span className="font-medium">{r.peer.username}</span>
                 <div className="flex gap-2">
@@ -185,7 +185,7 @@ export default function ContactsPage() {
             {filteredOutbound.map((r) => (
               <li
                 key={r.friendshipId}
-                className="flex items-center justify-between rounded border px-3 py-2 text-sm"
+                className="flex items-center justify-between rounded-xl border border-border/50 bg-card/60 px-4 py-3 text-sm shadow-sm"
               >
                 <span className="font-medium">{r.peer.username}</span>
                 <span className="text-xs text-muted-foreground">
@@ -208,7 +208,7 @@ export default function ContactsPage() {
               return (
                 <li
                   key={f.friendshipId}
-                  className="rounded border text-sm"
+                  className="rounded-xl border border-border/50 bg-card/60 text-sm shadow-sm overflow-hidden"
                   data-testid="contacts-friend-row"
                 >
                   <div
@@ -223,7 +223,7 @@ export default function ContactsPage() {
                         void openDmWith(f.peer.username);
                       }
                     }}
-                    className="flex cursor-pointer items-center justify-between px-3 py-2 hover:bg-accent focus:bg-accent focus:outline-none"
+                    className="flex cursor-pointer items-center justify-between px-4 py-3 hover:bg-accent/50 focus:bg-accent/50 focus:outline-none transition-colors"
                   >
                     <div className="flex items-center gap-2">
                       <span
@@ -279,7 +279,7 @@ export default function ContactsPage() {
             {filteredBlocked.map((b) => (
               <li
                 key={b.peer.id}
-                className="flex items-center justify-between rounded border px-3 py-2 text-sm"
+                className="flex items-center justify-between rounded-xl border border-border/50 bg-card/60 px-4 py-3 text-sm shadow-sm"
               >
                 <span className="font-medium">{b.peer.username}</span>
                 <Button

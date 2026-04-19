@@ -1,14 +1,21 @@
 import {
   centrifugoBroadcast,
   centrifugoPublish,
+  centrifugoUnsubscribe,
 } from "@/lib/centrifugo/server";
 import { logger } from "@/lib/logger";
 import type {
+  MemberBannedPayload,
   MessageCreatedPayload,
   MessageDeletedPayload,
   MessageUpdatedPayload,
   PresenceChangedPayload,
   PresenceStatus,
+  RoleChangedPayload,
+  RoomAccessRevokedPayload,
+  RoomDeletedPayload,
+  RoomInvitedPayload,
+  RoomUpdatedPayload,
   SocialEventPayload,
   TypingPayload,
   UnreadChangedPayload,
@@ -145,6 +152,92 @@ export async function publishMessageDeleted(
     await centrifugoPublish(channel, payload);
   } catch (err) {
     logger.warn({ err, channel }, "publishMessageDeleted failed");
+  }
+}
+
+export async function publishRoomUpdated(
+  conversationId: string,
+  payload: RoomUpdatedPayload,
+): Promise<void> {
+  try {
+    await centrifugoPublish(`room:${conversationId}`, payload);
+  } catch (err) {
+    logger.warn({ err, conversationId }, "publishRoomUpdated failed");
+  }
+}
+
+export async function publishRoleChanged(
+  conversationId: string,
+  payload: RoleChangedPayload,
+): Promise<void> {
+  try {
+    await centrifugoPublish(`room:${conversationId}`, payload);
+  } catch (err) {
+    logger.warn({ err, conversationId }, "publishRoleChanged failed");
+  }
+}
+
+export async function publishMemberBanned(
+  conversationId: string,
+  payload: MemberBannedPayload,
+): Promise<void> {
+  try {
+    await centrifugoPublish(`room:${conversationId}`, payload);
+  } catch (err) {
+    logger.warn({ err, conversationId }, "publishMemberBanned failed");
+  }
+}
+
+export async function publishRoomInvited(
+  targetUserId: string,
+  payload: RoomInvitedPayload,
+): Promise<void> {
+  await publishUserScopedEvent(targetUserId, payload);
+}
+
+export async function publishRoomAccessRevoked(
+  targetUserId: string,
+  payload: RoomAccessRevokedPayload,
+): Promise<void> {
+  await publishUserScopedEvent(targetUserId, payload);
+}
+
+export async function publishRoomDeletedToUser(
+  targetUserId: string,
+  payload: RoomDeletedPayload,
+): Promise<void> {
+  await publishUserScopedEvent(targetUserId, payload);
+}
+
+export async function publishRoomDeletedToUsers(
+  userIds: string[],
+  payload: RoomDeletedPayload,
+): Promise<void> {
+  await broadcastUserScopedEvent(userIds, payload);
+}
+
+export async function publishRoomDeletedToRoom(
+  conversationId: string,
+  payload: RoomDeletedPayload,
+): Promise<void> {
+  try {
+    await centrifugoPublish(`room:${conversationId}`, payload);
+  } catch (err) {
+    logger.warn({ err, conversationId }, "publishRoomDeletedToRoom failed");
+  }
+}
+
+export async function unsubscribeUserFromRoomChannel(
+  userId: string,
+  conversationId: string,
+): Promise<void> {
+  try {
+    await centrifugoUnsubscribe(userId, `room:${conversationId}`);
+  } catch (err) {
+    logger.warn(
+      { err, userId, conversationId },
+      "unsubscribeUserFromRoomChannel failed",
+    );
   }
 }
 

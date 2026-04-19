@@ -69,6 +69,7 @@ services:
       centrifugo:
         condition: service_started
     environment:
+      DB_BACKEND: "${DB_BACKEND:-local}"
       DATABASE_URL: "${DATABASE_URL:-postgresql://chat:chat@db:5432/chat?schema=public}"
       CENTRIFUGO_TOKEN_HMAC_SECRET: "${CENTRIFUGO_TOKEN_HMAC_SECRET:-dev-centrifugo-hmac-secret-change-me}"
       CENTRIFUGO_API_KEY: "${CENTRIFUGO_API_KEY:-dev-centrifugo-api-key-change-me}"

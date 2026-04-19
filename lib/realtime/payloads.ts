@@ -1,5 +1,6 @@
 import { z } from "zod";
 import type { MessagePayload } from "@/lib/messages/serialize";
+import type { RoomInviteDto, RoomSummaryDto } from "@/lib/rooms/serialize";
 import type {
   BlockCreatedEventPayload,
   BlockRemovedEventPayload,
@@ -54,13 +55,55 @@ export type TypingPayload = {
   sentAt: string;
 };
 
+export type RoomUpdatedPayload = {
+  type: "room.updated";
+  room: RoomSummaryDto;
+};
+
+export type RoleChangedPayload = {
+  type: "role.changed";
+  conversationId: string;
+  roomId: string;
+  userId: string;
+  role: "owner" | "admin" | "member";
+};
+
+export type MemberBannedPayload = {
+  type: "member.banned";
+  conversationId: string;
+  roomId: string;
+  userId: string;
+};
+
+export type RoomInvitedPayload = {
+  type: "room.invited";
+  invite: RoomInviteDto;
+};
+
+export type RoomAccessRevokedPayload = {
+  type: "room.access.revoked";
+  room: RoomSummaryDto;
+  conversationId: string;
+  reason: "banned" | "removed";
+};
+
+export type RoomDeletedPayload = {
+  type: "room.deleted";
+  roomId: string;
+  conversationId: string;
+  roomName: string;
+};
+
 export type SocialEventPayload =
   | FriendRequestEventPayload
   | FriendAcceptedEventPayload
   | FriendRemovedEventPayload
   | BlockCreatedEventPayload
   | BlockRemovedEventPayload
-  | DmFrozenEventPayload;
+  | DmFrozenEventPayload
+  | RoomInvitedPayload
+  | RoomAccessRevokedPayload
+  | RoomDeletedPayload;
 
 export const messageUpdatedSchema = z.object({
   type: z.literal("message.updated"),
@@ -73,4 +116,19 @@ export const messageDeletedSchema = z.object({
   conversationId: z.string(),
   id: z.string(),
   deletedAt: z.string(),
+});
+
+export const roleChangedSchema = z.object({
+  type: z.literal("role.changed"),
+  conversationId: z.string(),
+  roomId: z.string(),
+  userId: z.string(),
+  role: z.enum(["owner", "admin", "member"]),
+});
+
+export const memberBannedSchema = z.object({
+  type: z.literal("member.banned"),
+  conversationId: z.string(),
+  roomId: z.string(),
+  userId: z.string(),
 });

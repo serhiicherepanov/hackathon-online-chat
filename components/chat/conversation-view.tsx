@@ -83,8 +83,8 @@ export function ConversationView({
   return (
     <div className="flex h-full min-h-0 flex-1">
       <div className="flex min-w-0 min-h-0 flex-1 flex-col border-r border-border">
-        <div className="flex items-center justify-between gap-2 border-b border-border px-4 py-3">
-          <h1 className="text-lg font-semibold">{title}</h1>
+        <div className="flex items-center justify-between gap-2 border-b border-border bg-card/60 backdrop-blur-sm px-5 py-4 shadow-sm">
+          <h1 className="text-lg font-semibold text-foreground">{title}</h1>
           {headerExtra}
         </div>
 
@@ -131,7 +131,7 @@ export function ConversationView({
       </div>
 
       {aside ? (
-        <aside className="hidden w-72 shrink-0 flex-col gap-3 p-4 md:flex">
+        <aside className="hidden w-72 shrink-0 flex-col gap-3 p-4 sidebar-bg md:flex">
           {aside}
         </aside>
       ) : null}

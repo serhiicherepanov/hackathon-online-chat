@@ -62,8 +62,16 @@ fi
 # Disable it so v5 falls back to the classic per-service build path.
 export COMPOSE_BAKE=false
 
+# Pin the compose project name so the image tag the script builds below
+# (`hackathon-online-chat-app:latest`) matches the name compose resolves for
+# `services.app`. Without this pin, running from a git worktree whose
+# directory name is not `hackathon-online-chat` (e.g.
+# `hackathon-online-chat-theme-design-improvement-check`) makes compose look
+# for `<worktree>-app:latest` and fail with "No such image".
+export COMPOSE_PROJECT_NAME="${COMPOSE_PROJECT_NAME:-hackathon-online-chat}"
+
 dc() {
-  docker compose -f "$COMPOSE_FILE_E2E" --env-file "$ENV_FILE_E2E" "$@"
+  docker compose -p "$COMPOSE_PROJECT_NAME" -f "$COMPOSE_FILE_E2E" --env-file "$ENV_FILE_E2E" "$@"
 }
 
 export TRAEFIK_BIND_PORT="${TRAEFIK_BIND_PORT:-3080}"

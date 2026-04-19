@@ -39,13 +39,13 @@ Builds on [R2](r2-social-presence.md).
 
 ## UI additions
 
-- `ManageRoomDialog` tabs (modal, wireframe-accurate): Members, Admins, Banned, Invitations, Settings.
-- Room header menu: Invite user, Manage room, Leave (owner sees Delete room instead of Leave).
+- `ManageRoomDialog` tabs: Members, Admins, Banned, Invitations, and owner-only Settings.
+- Room header menu: Invite user, Manage room, Leave (owner sees Delete room instead of Leave; regular members only see Leave).
 - Toast + sidebar removal on `room.access.revoked`.
 
 ## Acceptance criteria
 
-1. Owner opens Manage Room → Members tab lists roles and statuses; can make/remove admin; cannot demote owner (UI + API).
+1. Owner opens Manage Room → Members tab lists roles and statuses; can make/remove admin; cannot demote owner (UI + API). Admins see the moderation tabs but not owner-only settings.
 2. Admin bans a member → the member's room disappears from their sidebar live; rejoin via catalog is rejected; ban list shows banned-by and timestamp.
 3. Admin deletes someone else's message → live removal for all participants.
 4. Owner invites a user by username to a private room → invitee sees pending invite, accepts, joins.

@@ -16,9 +16,9 @@ Architecture baseline: [`AGENTS.md`](../../AGENTS.md).
 | Release | Theme | Status |
 |---------|-------|--------|
 | [R0 — Demo-able MVP](r0-mvp.md) | Compose, auth, rooms (public + private flag), DMs, realtime text, unread badges, online/offline presence | done |
-| [R1 — Rich Messaging](r1-rich-messaging.md) | Attachments (files + images), reply, edit, delete, multiline, emoji | planned |
-| [R2 — Social & Presence](r2-social-presence.md) | Friends, blocks with frozen DMs, AFK/multi-tab, typing indicators | planned |
-| [R3 — Moderation & Admin](r3-moderation.md) | Roles, bans, invitations, Manage Room modal, owner-only actions | planned |
+| [R1 — Rich Messaging](r1-rich-messaging.md) | Attachments (files + images), reply, edit, delete, multiline, emoji | done |
+| [R2 — Social & Presence](r2-social-presence.md) | Friends, blocks with frozen DMs, AFK/multi-tab, typing indicators | done |
+| [R3 — Moderation & Admin](r3-moderation.md) | Roles, bans, invitations, Manage Room modal, owner-only actions | done |
 | [R4 — Polish & Submission](r4-polish-scale.md) | Password reset, delete account, active sessions UI, 10k-message perf, 300-client load test, README, seed | planned |
 | [R5 — Advanced (stretch)](r5-advanced.md) | Multi-node Centrifugo + Redis, bot/integration API, realtime admin dashboards | stretch |
 
