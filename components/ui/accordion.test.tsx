@@ -17,7 +17,6 @@ describe("<AccordionTrigger />", () => {
     const trigger = screen.getByRole("button", { name: "Section" });
     const icon = screen.getByTestId("accordion-chevron");
 
-    expect(trigger.className).toContain("[&[data-state=open]>svg]:rotate-90");
     expect(trigger).toHaveAttribute("data-state", "closed");
     expect(icon).toHaveAttribute("data-direction", "right");
 
@@ -25,7 +24,35 @@ describe("<AccordionTrigger />", () => {
     expect(trigger).toHaveAttribute("data-state", "open");
   });
 
-  it("renders compact header actions outside toggle behavior", () => {
+  it("orders title first, actions second, and the chevron last", () => {
+    const onAction = vi.fn();
+
+    render(
+      <Accordion type="single" collapsible>
+        <AccordionItem value="section">
+          <AccordionTrigger actions={<button onClick={onAction}>Action</button>}>
+            Section
+          </AccordionTrigger>
+          <AccordionContent>Body</AccordionContent>
+        </AccordionItem>
+      </Accordion>,
+    );
+
+    const title = screen.getByTestId("accordion-title");
+    const actions = screen.getByTestId("accordion-actions");
+    const chevron = screen.getByTestId("accordion-chevron");
+
+    expect(
+      title.compareDocumentPosition(actions) &
+        Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+    expect(
+      actions.compareDocumentPosition(chevron) &
+        Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+  });
+
+  it("invokes compact header actions without toggling the section", () => {
     const onAction = vi.fn();
 
     render(
@@ -41,12 +68,6 @@ describe("<AccordionTrigger />", () => {
 
     const trigger = screen.getByRole("button", { name: "Section" });
     const action = screen.getByRole("button", { name: "Action" });
-    const chevron = screen.getByTestId("accordion-chevron");
-
-    expect(
-      action.compareDocumentPosition(chevron) &
-        Node.DOCUMENT_POSITION_FOLLOWING,
-    ).toBeTruthy();
 
     fireEvent.click(action);
 

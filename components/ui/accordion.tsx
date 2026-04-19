@@ -26,23 +26,37 @@ const AccordionTrigger = React.forwardRef<
     actions?: React.ReactNode
   }
 >(({ className, children, actions, ...props }, ref) => (
-  <AccordionPrimitive.Header className="flex items-center gap-1">
-    {actions ? (
-      <div className="flex items-center gap-1" data-testid="accordion-actions">
-        {actions}
-      </div>
-    ) : null}
+  <AccordionPrimitive.Header
+    className="flex items-center gap-1"
+    data-testid="accordion-header"
+  >
     <AccordionPrimitive.Trigger
       ref={ref}
       className={cn(
-        "flex flex-1 items-center justify-between py-3 text-left text-sm font-medium transition-all hover:text-primary [&[data-state=open]>svg]:rotate-90",
+        "flex min-w-0 flex-1 items-center py-3 text-left text-sm font-medium transition-all hover:text-primary",
         className
       )}
       {...props}
     >
-      <span className="min-w-0 flex-1">{children}</span>
+      <span className="min-w-0 flex-1 truncate" data-testid="accordion-title">
+        {children}
+      </span>
+    </AccordionPrimitive.Trigger>
+    {actions ? (
+      <div
+        className="flex shrink-0 items-center gap-1"
+        data-testid="accordion-actions"
+      >
+        {actions}
+      </div>
+    ) : null}
+    <AccordionPrimitive.Trigger
+      aria-hidden
+      tabIndex={-1}
+      className="flex shrink-0 items-center py-3 text-primary/60 transition-transform duration-200 hover:text-primary data-[state=open]:rotate-90"
+    >
       <ChevronRight
-        className="h-4 w-4 shrink-0 text-primary/60 transition-transform duration-200"
+        className="h-4 w-4"
         data-testid="accordion-chevron"
         data-direction="right"
       />

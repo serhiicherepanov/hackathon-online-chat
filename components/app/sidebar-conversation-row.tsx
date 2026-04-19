@@ -1,7 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { RoomAvatar, UserAvatar } from "@/components/chat/user-avatar";
+import { UserAvatar } from "@/components/chat/user-avatar";
+import { RoomVisibilityIcon } from "@/components/chat/room-visibility-icon";
 import { UnreadBadge } from "@/components/app/unread-badge";
 import { PRESENCE_LABEL } from "@/lib/avatar";
 import type { PresenceStatus } from "@/lib/realtime/payloads";
@@ -59,6 +60,7 @@ export function SidebarRoomRow({
     id: string;
     name: string;
     conversationId: string;
+    visibility: "public" | "private";
   };
   unread: number;
   active: boolean;
@@ -67,16 +69,17 @@ export function SidebarRoomRow({
     <Link
       href={`/rooms/${room.id}`}
       data-testid={`sidebar-room-row-${room.id}`}
+      data-room-visibility={room.visibility}
       className={cn(
         "flex h-9 items-center gap-2 rounded-md px-2 text-sm hover:bg-accent",
         active && "bg-accent",
       )}
     >
-      <RoomAvatar
-        roomId={room.id}
+      <RoomVisibilityIcon
+        visibility={room.visibility}
         roomName={room.name}
         size={24}
-        testId={`sidebar-room-avatar-${room.id}`}
+        testId={`sidebar-room-icon-${room.id}`}
       />
       <span className="min-w-0 flex-1 truncate">{room.name}</span>
       <UnreadBadge count={unread} />

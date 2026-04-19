@@ -24,5 +24,11 @@ test.describe("room creation visibility", () => {
     await expect(
       page.getByTestId("room-card").filter({ hasText: roomName }),
     ).toHaveCount(0);
+
+    const privateSection = page.getByTestId("private-rooms-section");
+    await expect(privateSection).toContainText(roomName);
+    await expect(
+      privateSection.locator('[data-room-visibility="private"]'),
+    ).toBeVisible();
   });
 });

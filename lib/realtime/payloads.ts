@@ -75,6 +75,19 @@ export type MemberBannedPayload = {
   userId: string;
 };
 
+export type MemberJoinedPayload = {
+  type: "member.joined";
+  conversationId: string;
+  roomId: string;
+  member: {
+    userId: string;
+    username: string;
+    avatarUrl: string | null;
+    role: "owner" | "admin" | "member";
+    joinedAt: string;
+  };
+};
+
 export type RoomInvitedPayload = {
   type: "room.invited";
   invite: RoomInviteDto;
@@ -131,4 +144,17 @@ export const memberBannedSchema = z.object({
   conversationId: z.string(),
   roomId: z.string(),
   userId: z.string(),
+});
+
+export const memberJoinedSchema = z.object({
+  type: z.literal("member.joined"),
+  conversationId: z.string(),
+  roomId: z.string(),
+  member: z.object({
+    userId: z.string(),
+    username: z.string(),
+    avatarUrl: z.string().nullable(),
+    role: z.enum(["owner", "admin", "member"]),
+    joinedAt: z.string(),
+  }),
 });

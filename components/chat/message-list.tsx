@@ -26,7 +26,7 @@ export function MessageList({
   fetchOlder,
 }: MessageListProps) {
   const virtuosoRef = useRef<VirtuosoHandle>(null);
-  const didSnapToBottomRef = useRef(false);
+  const snappedConversationIdRef = useRef<string | null>(null);
   const atBottomRef = useRef(true);
   const previousConversationIdRef = useRef(conversationId);
   const previousLengthRef = useRef(messages.length);
@@ -37,7 +37,7 @@ export function MessageList({
   >(null);
 
   useEffect(() => {
-    didSnapToBottomRef.current = false;
+    snappedConversationIdRef.current = null;
     atBottomRef.current = true;
     previousConversationIdRef.current = conversationId;
     previousLengthRef.current = messages.length;
@@ -72,8 +72,12 @@ export function MessageList({
   }, []);
 
   useEffect(() => {
-    if (messages.length === 0 || didSnapToBottomRef.current) return;
-    didSnapToBottomRef.current = true;
+    if (messages.length === 0) return;
+    if (snappedConversationIdRef.current === conversationId) return;
+    snappedConversationIdRef.current = conversationId;
+    atBottomRef.current = true;
+    setAtBottom(true);
+    setNewWhileAwayConversationId(null);
     const cancel = scheduleSnapToBottom("auto");
     return cancel;
   }, [conversationId, messages.length, scheduleSnapToBottom]);

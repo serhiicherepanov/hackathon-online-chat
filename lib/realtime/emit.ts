@@ -6,6 +6,7 @@ import {
 import { logger } from "@/lib/logger";
 import type {
   MemberBannedPayload,
+  MemberJoinedPayload,
   MessageCreatedPayload,
   MessageDeletedPayload,
   MessageUpdatedPayload,
@@ -185,6 +186,17 @@ export async function publishMemberBanned(
     await centrifugoPublish(`room:${conversationId}`, payload);
   } catch (err) {
     logger.warn({ err, conversationId }, "publishMemberBanned failed");
+  }
+}
+
+export async function publishMemberJoined(
+  conversationId: string,
+  payload: MemberJoinedPayload,
+): Promise<void> {
+  try {
+    await centrifugoPublish(`room:${conversationId}`, payload);
+  } catch (err) {
+    logger.warn({ err, conversationId }, "publishMemberJoined failed");
   }
 }
 
