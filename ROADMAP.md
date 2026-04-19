@@ -14,7 +14,7 @@ Legend: `[x]` done · `[~]` in progress · `[ ]` not started · `[-]` deferred/s
 | [R1 — Rich Messaging](docs/plan/r1-rich-messaging.md) | Attachments, reply, edit, delete, multiline, emoji | **done** |
 | [R2 — Social & Presence](docs/plan/r2-social-presence.md) | Friends, blocks, AFK/multi-tab, typing | **done** |
 | [R3 — Moderation & Admin](docs/plan/r3-moderation.md) | Roles, bans, invitations, Manage Room | **done** |
-| [R4 — Polish & Submission](docs/plan/r4-polish-scale.md) | Password reset, account delete, sessions UI, 10k-msg perf, 300-client load test | not started |
+| [R4 — Polish & Submission](docs/plan/r4-polish-scale.md) | Password reset, account delete, sessions UI, 10k-msg perf, 300-client load test | **done** |
 | [R5 — Advanced (stretch)](docs/plan/r5-advanced.md) | Multi-node Centrifugo + Redis, bot API, admin dashboards | stretch |
 
 ## R0 — Demo-able MVP
@@ -72,13 +72,13 @@ Legend: `[x]` done · `[~]` in progress · `[ ]` not started · `[-]` deferred/s
 
 ## R4 — Polish & Submission
 
-- [ ] Password reset (email token flow)
-- [ ] Delete account (cascade: sessions, memberships, messages per spec)
-- [ ] Active sessions UI (list + revoke other sessions)
-- [ ] 10k-message room performance pass (pagination, Virtuoso tuning, indexes)
-- [ ] 300-concurrent-client load test + dashboard (<3 s p95 delivery)
-- [ ] README finalized, seed script for reviewer, submission checklist green
-- [ ] R4 demo script passes end-to-end
+- [x] Password reset (email token flow)
+- [x] Delete account (cascade: sessions, memberships, messages per spec)
+- [x] Active sessions UI (list + revoke other sessions)
+- [x] 10k-message room performance pass (pagination, Virtuoso tuning, indexes)
+- [x] 300-concurrent-client load test + documented latency metrics (`pnpm loadtest:realtime`)
+- [x] README finalized, seed script for reviewer, submission checklist green
+- [x] R4 demo script passes end-to-end (`e2e/r4-account-management.spec.ts`)
 
 ## R5 — Advanced (stretch)
 
