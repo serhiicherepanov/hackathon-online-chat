@@ -92,7 +92,7 @@ test.describe("R0 acceptance (13.x)", () => {
     // was previously open to all users; see lib/social/relationships.ts.
     await befriendContexts(ctxA, ctxB);
 
-    await pageA.getByRole("button", { name: "+ New DM" }).click();
+    await pageA.getByRole("button", { name: "New DM" }).click();
     const dmDlg = pageA.getByRole("dialog", { name: "Start a DM" });
     await dmDlg
       .getByRole("button", { name: users.b.username, exact: true })

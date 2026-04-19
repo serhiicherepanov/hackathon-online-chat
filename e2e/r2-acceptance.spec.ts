@@ -102,7 +102,7 @@ test.describe("R2 acceptance (social graph)", () => {
         ]),
       );
 
-      await pageA.getByRole("button", { name: "+ New DM" }).click();
+      await pageA.getByRole("button", { name: "New DM" }).click();
       const dmDlg = pageA.getByRole("dialog", { name: "Start a DM" });
       await dmDlg
         .getByRole("button", { name: userB.username, exact: true })
@@ -121,6 +121,74 @@ test.describe("R2 acceptance (social graph)", () => {
       await expect(pageB.getByText(dmBody, { exact: true })).toBeVisible({
         timeout: 15_000,
       });
+    } finally {
+      await apiA.dispose();
+      await apiB.dispose();
+      await ctxA.close();
+      await ctxB.close();
+    }
+  });
+
+  test("sidebar keeps section order and renders DM avatar/presence affordances", async ({
+    browser,
+  }) => {
+    const users = makeUsers("r2sb");
+
+    const ctxA = await browser.newContext({ baseURL: e2eBaseURL() });
+    const ctxB = await browser.newContext({ baseURL: e2eBaseURL() });
+    const pageA = await ctxA.newPage();
+    const pageB = await ctxB.newPage();
+
+    await register(pageA, users.a);
+    await register(pageB, users.b);
+
+    const apiA = await authedApi(ctxA);
+    const apiB = await authedApi(ctxB);
+
+    try {
+      const userB = await getMe(apiB);
+      await createAcceptedFriendship(apiA, apiB, userB.id);
+
+      const dmOpen = await apiA.post(`/api/dm/${encodeURIComponent(userB.username)}`);
+      expect(dmOpen.ok()).toBeTruthy();
+
+      await pageA.goto("/contacts");
+      await expect(pageA.locator("aside")).toBeVisible({ timeout: 15_000 });
+
+      const invitesSection = pageA.getByTestId("sidebar-section-invites");
+      const dmsSection = pageA.getByTestId("sidebar-section-dms");
+      const roomsSection = pageA.getByTestId("sidebar-section-rooms");
+
+      await expect(invitesSection).toBeVisible();
+      await expect(dmsSection).toBeVisible();
+      await expect(roomsSection).toBeVisible();
+
+      const invitesY = (await invitesSection.boundingBox())?.y ?? 0;
+      const dmsY = (await dmsSection.boundingBox())?.y ?? 0;
+      const roomsY = (await roomsSection.boundingBox())?.y ?? 0;
+      expect(invitesY).toBeLessThan(dmsY);
+      expect(dmsY).toBeLessThan(roomsY);
+
+      await pageA.getByTestId("sidebar-browse-rooms-button").click();
+      await pageA.waitForURL("**/rooms", { timeout: 15_000 });
+
+      await pageA.getByTestId("sidebar-new-dm-button").click();
+      const dmDialog = pageA.getByRole("dialog", { name: "Start a DM" });
+      await expect(dmDialog).toBeVisible({ timeout: 15_000 });
+      await pageA.keyboard.press("Escape");
+
+      await pageA.getByTestId("sidebar-create-room-button").click();
+      const createDialog = pageA.getByRole("dialog", { name: "Create a public room" });
+      await expect(createDialog).toBeVisible({ timeout: 15_000 });
+      await createDialog.getByLabel("Name").fill(`sidebar-room-${Date.now()}`);
+      await createDialog.getByRole("button", { name: "Create" }).click();
+      await expect(createDialog).toBeHidden({ timeout: 15_000 });
+
+      await pageA.goto("/rooms");
+      const dmRow = pageA.getByTestId(`sidebar-dm-row-${userB.id}`);
+      await expect(dmRow).toBeVisible({ timeout: 15_000 });
+      await expect(dmRow).toHaveAttribute("data-presence", /online|afk|offline/);
+      await expect(pageA.getByTestId(`sidebar-dm-avatar-${userB.id}`)).toBeVisible();
     } finally {
       await apiA.dispose();
       await apiB.dispose();
@@ -151,7 +219,7 @@ test.describe("R2 acceptance (social graph)", () => {
 
       // Create the DM + bootstrap message via API so the freeze-on-block
       // assertions (the real subject of this test) have budget room inside
-      // the 10s per-test timeout. The UI `+ New DM` dialog and live peer
+      // the 10s per-test timeout. The UI `New DM` dialog and live peer
       // delivery are covered by `friend request acceptance unlocks first
       // DM creation` — repeating them here is pure setup overhead.
       const dmOpen = await apiA.post(

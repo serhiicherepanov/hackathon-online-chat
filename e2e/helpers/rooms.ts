@@ -1,9 +1,10 @@
 import type { Page } from "@playwright/test";
 
 export async function createPublicRoom(page: Page, name: string) {
-  await page.getByRole("button", { name: "Create room" }).click();
-  await page.locator("#room-name").fill(name);
-  await page.getByRole("button", { name: "Create" }).click();
+  await page.locator("main").getByRole("button", { name: "Create room" }).click();
+  const dialog = page.getByRole("dialog", { name: "Create a public room" });
+  await dialog.locator("#room-name").fill(name);
+  await dialog.getByRole("button", { name: "Create" }).click();
   await page.getByRole("heading", { name: "Public rooms" }).waitFor();
   await page.getByText(name, { exact: true }).first().waitFor({ state: "visible" });
 }

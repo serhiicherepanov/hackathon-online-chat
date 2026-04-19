@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # Host-side unit-test pipeline.
-# Runs: lint -> typecheck -> vitest. No Docker, no network, no DB.
+# Runs: prisma generate -> prisma sync guard -> lint -> typecheck -> vitest.
+# No Docker, no network, no DB.
 #
 # This script does NOT install anything. If a prerequisite is missing it
 # exits with exit code 2 and tells you the exact command to run yourself.
@@ -31,6 +32,9 @@ echo "    pnpm $(pnpm --version)  node $(node --version)"
 
 echo "==> prisma generate (types for @prisma/client; no DB required)"
 pnpm exec prisma generate
+
+echo "==> pnpm check:prisma-client"
+pnpm check:prisma-client
 
 echo "==> pnpm lint"
 pnpm lint

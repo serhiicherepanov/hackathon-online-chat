@@ -22,7 +22,7 @@ export async function getMe(api: APIRequestContext) {
  * R2 gates `POST /api/dm/:username` behind an accepted friendship. Any
  * pre-R2 test that opens a DM between two fresh users must call this first
  * or the DM endpoint will return 403 `friendship_required` and the UI flow
- * (`+ New DM` dialog) will silently fail.
+ * (`New DM` dialog) will silently fail.
  */
 export async function createAcceptedFriendship(
   requesterApi: APIRequestContext,

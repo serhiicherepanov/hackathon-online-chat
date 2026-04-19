@@ -35,10 +35,10 @@ export type MessagePayload = {
 };
 
 export type MessageWithRelations = Message & {
-  author: { id: string; username: string; displayName: string | null };
+  author: { id: string; username: string; displayName?: string | null };
   attachments: Attachment[];
   replyTo:
-    | (Message & { author: { id: string; username: string; displayName: string | null } })
+    | (Message & { author: { id: string; username: string; displayName?: string | null } })
     | null;
 };
 
@@ -66,7 +66,7 @@ export function serializeMessage(m: MessageWithRelations): MessagePayload {
           id: m.replyTo.id,
           authorId: m.replyTo.authorId,
           authorUsername: m.replyTo.author.username,
-          authorDisplayName: m.replyTo.author.displayName,
+          authorDisplayName: m.replyTo.author.displayName ?? null,
           bodyPreview: m.replyTo.deletedAt ? null : previewBody(m.replyTo.body),
           deleted: !!m.replyTo.deletedAt,
         }
@@ -93,7 +93,11 @@ export function serializeMessage(m: MessageWithRelations): MessagePayload {
     editedAt: m.editedAt ? m.editedAt.toISOString() : null,
     deletedAt: m.deletedAt ? m.deletedAt.toISOString() : null,
     deleted,
-    author: m.author,
+    author: {
+      id: m.author.id,
+      username: m.author.username,
+      displayName: m.author.displayName ?? null,
+    },
     attachments,
     replyTo: deleted && replyTo && "bodyPreview" in replyTo
       ? {
@@ -109,9 +113,9 @@ export function serializeMessage(m: MessageWithRelations): MessagePayload {
 }
 
 export const messageInclude = {
-  author: { select: { id: true, username: true, displayName: true } },
+  author: true,
   attachments: true,
   replyTo: {
-    include: { author: { select: { id: true, username: true, displayName: true } } },
+    include: { author: true },
   },
 } as const;
