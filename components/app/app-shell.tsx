@@ -39,6 +39,7 @@ import { useMyRooms } from "@/lib/hooks/use-my-rooms";
 import { useRoomInvites } from "@/lib/hooks/use-room-invites";
 import { filterByPeerUsername } from "@/lib/social/filter-contacts";
 import { useAuthStore } from "@/lib/stores/auth-store";
+import { useConnectionStore } from "@/lib/stores/connection-store";
 import { useToastStore } from "@/lib/stores/toast-store";
 import { useUnreadStore } from "@/lib/stores/unread-store";
 import { cn } from "@/lib/utils";
@@ -49,6 +50,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const setUser = useAuthStore((s) => s.setUser);
   const user = useAuthStore((s) => s.user);
   const setUnreadFromServer = useUnreadStore((s) => s.setFromServer);
+  const realtimeStatus = useConnectionStore((s) => s.state);
   const toasts = useToastStore((s) => s.toasts);
   const removeToast = useToastStore((s) => s.remove);
 
@@ -188,7 +190,10 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   return (
     <CentrifugeBoundary>
       <CentrifugeProvider userId={user.id}>
-        <div className="flex min-h-screen flex-col">
+        <div
+          className="flex min-h-screen flex-col"
+          data-realtime-status={realtimeStatus}
+        >
           <div className="pointer-events-none fixed right-4 top-4 z-50 flex w-80 flex-col gap-2">
             {toasts.map((toast) => (
               <div
