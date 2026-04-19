@@ -285,6 +285,25 @@ test was both added and run successfully. If e2e is blocked by environment or
 infrastructure issues, say so explicitly, keep the task unchecked, and report the
 exact blocker instead of silently skipping it.
 
+**Always run the full e2e suite before every `git push`.** Unit tests and
+`pnpm typecheck` are necessary but not sufficient — they cannot catch
+regressions in realtime behavior, auth/session flows, migrations, Compose
+wiring, or anything else that only surfaces against the live stack. Before any
+`git push` (new branch, follow-up commit on an existing branch, PR update,
+force-with-lease, etc.), run:
+
+```bash
+timeout 900 ./scripts/ci-e2e.sh 2>&1 | tee test-artifacts/pre-push-e2e.log | tail -n 5
+```
+
+Only push after the suite exits green. If the suite fails, fix the issue and
+re-run the full suite — do not push with a red or skipped e2e run. The single
+narrow exception is a push that touches **only** non-runtime files (for
+example, `docs/**`, `README.md`, `openspec/**` text-only edits, `AGENTS.md`,
+`.md` files, or comments) and cannot by construction change application
+behavior; in that case, state explicitly in the commit/PR summary that the
+diff is docs-only and e2e was skipped for that reason. When in doubt, run it.
+
 ### Iterating on a single e2e test (fast local loop)
 
 `./scripts/ci-e2e.sh` does the full pipeline — `docker build` of the production
