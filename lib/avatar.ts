@@ -1,6 +1,10 @@
 import type { PresenceStatus } from "@/lib/realtime/payloads";
 
-export const GENERATED_AVATAR_VARIANT = "marble";
+export type GeneratedAvatarKind = "user" | "room";
+export type GeneratedAvatarVariant = "beam" | "marble";
+
+export const USER_GENERATED_AVATAR_VARIANT: GeneratedAvatarVariant = "beam";
+export const ROOM_GENERATED_AVATAR_VARIANT: GeneratedAvatarVariant = "marble";
 
 export const GENERATED_AVATAR_COLORS = [
   "#5B8DEF",
@@ -22,4 +26,12 @@ export function getUserAvatarSeed(userId: string): string {
 
 export function getRoomAvatarSeed(roomId: string): string {
   return `room:${roomId}`;
+}
+
+export function getGeneratedAvatarVariant(
+  kind: GeneratedAvatarKind,
+): GeneratedAvatarVariant {
+  return kind === "user"
+    ? USER_GENERATED_AVATAR_VARIANT
+    : ROOM_GENERATED_AVATAR_VARIANT;
 }
