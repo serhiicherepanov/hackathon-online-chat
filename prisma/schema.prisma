@@ -1,7 +1,9 @@
 // Prisma schema — R0 chat (users, sessions, rooms, DMs, messages, reads).
+// Supports both local PostgreSQL and Neon serverless via DB_BACKEND env var.
 
 generator client {
-  provider = "prisma-client-js"
+  provider        = "prisma-client-js"
+  previewFeatures = ["driverAdapters"]
 }
 
 datasource db {
