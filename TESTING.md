@@ -85,6 +85,7 @@ prod image build `~900s`.
 | Script                        | What it does                                                                                  |
 | ----------------------------- | --------------------------------------------------------------------------------------------- |
 | `scripts/ci-unit.sh`          | Preflights tooling, runs `pnpm lint` → `pnpm typecheck` → `pnpm test`.                        |
+| `pnpm verify:ci`              | Runs `scripts/ci-unit.sh` and then `pnpm build` to catch deploy-time type/build regressions.  |
 | `scripts/ci-e2e.sh`           | Preflights, brings up the prod compose stack, waits for health, runs Playwright, dumps logs + HTML report to `test-artifacts/`, tears the stack down. |
 | `scripts/wait-for-health.sh`  | Polls `$1/api/health` until 200 or timeout.                                                   |
 
@@ -96,8 +97,9 @@ pnpm install --frozen-lockfile
 pnpm exec playwright install chromium   # add --with-deps on Linux (once)
 ```
 
-GitHub Actions (`.github/workflows/ci.yml`) runs the two scripts as separate
-`unit` and `e2e` jobs and uploads `test-artifacts/` on failure.
+GitHub Actions (`.github/workflows/ci.yml`) runs `pnpm verify:ci` in the
+`unit` job and `scripts/ci-e2e.sh` in the `e2e` job, then uploads
+`test-artifacts/` on failure.
 
 ## Troubleshooting
 

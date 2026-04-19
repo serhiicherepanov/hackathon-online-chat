@@ -40,20 +40,19 @@ Node.js, pnpm, Postgres, and Centrifugo all run inside containers.
 ```bash
 git clone <repo>
 cd <repo>
-docker compose up --build
+cp .env.example .env
+# set production secrets/urls in .env:
+#   NEXT_PUBLIC_CENTRIFUGO_WS_URL=wss://your.domain/connection/websocket
+#   CENTRIFUGO_TOKEN_HMAC_SECRET=<random>
+#   CENTRIFUGO_API_KEY=<random>
+#   SESSION_SECRET=<32+ chars>
+#   SESSION_COOKIE_DOMAIN=.digitalspace.studio  # optional, shared subdomains
+docker compose -f docker-compose.prod.yml up -d --build
 # open http://localhost:3080
 ```
 
-Creating a `.env` file is optional; `docker-compose.yml` ships working dev
-defaults for every variable listed in [`.env.example`](.env.example). Copy and
-customise if you need overrides:
-
-```bash
-cp .env.example .env
-```
-
-Shut down with `docker compose down`; add `-v` to wipe the Postgres and
-uploads volumes.
+Shut down with `docker compose -f docker-compose.prod.yml down`; add `-v` to
+wipe the Postgres and uploads volumes.
 
 ### Ports
 
@@ -76,8 +75,7 @@ for human-readable output.
 
 ## Environment variables
 
-All variables are documented in [`.env.example`](.env.example) with dev-only
-defaults.
+All variables are documented in [`.env.example`](.env.example).
 
 | Variable                        | Purpose                                             |
 |---------------------------------|-----------------------------------------------------|
@@ -92,28 +90,18 @@ defaults.
 | `PASSWORD_RESET_DELIVERY_FILE`  | Optional JSONL artifact file for dev/test reset URLs |
 | `LOG_LEVEL`                     | pino log level (default `info`)                     |
 
-## Production mode
+## Development mode (optional)
 
-The default `docker compose up` runs the app in **development** mode
-(`next dev` + HMR, source bind-mounted). For a real deployment use the
-self-contained [`docker-compose.prod.yml`](docker-compose.prod.yml):
+Use [`docker-compose.yml`](docker-compose.yml) when you need `next dev` + HMR
+and source bind-mounts:
 
 ```bash
-# set public WS URL + secrets in .env first:
-#   NEXT_PUBLIC_CENTRIFUGO_WS_URL=wss://your.domain/connection/websocket
-#   CENTRIFUGO_TOKEN_HMAC_SECRET=<random>
-#   CENTRIFUGO_API_KEY=<random>
-#   SESSION_SECRET=<32+ chars>
-#   SESSION_COOKIE_DOMAIN=.digitalspace.studio  # optional, for shared subdomains
-
-docker compose -f docker-compose.prod.yml up -d --build
+docker compose up --build
 ```
 
-This builds the `production` target (`next build` + `next start`), inlines
-`NEXT_PUBLIC_*` values into the client bundle, drops the dev source mount, and
-sets `NODE_ENV=production`. Because `NEXT_PUBLIC_*` are baked at build time,
-any change to them requires `docker compose -f docker-compose.prod.yml build app`
-— a plain `up -d` will not rebuild the bundle.
+This file includes dev-friendly defaults from [`.env.example`](.env.example).
+Use it for local iteration only; the production compose file remains the
+deployment path.
 
 ## Development workflow
 
@@ -126,6 +114,7 @@ pnpm dev          # Next.js dev server
 pnpm build        # production build
 pnpm lint         # ESLint
 pnpm typecheck    # strict tsc --noEmit
+pnpm verify:ci    # prisma generate + lint + typecheck + unit tests + production build
 pnpm test         # Vitest unit tests
 pnpm db:migrate   # apply committed Prisma migrations
 pnpm db:generate  # regenerate Prisma Client

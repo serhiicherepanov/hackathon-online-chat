@@ -11,7 +11,7 @@ concurrency:
 
 jobs:
   unit:
-    name: Lint + Typecheck + Vitest
+    name: Verify (lint, typecheck, unit, build)
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
@@ -22,7 +22,7 @@ jobs:
           node-version: 20
           cache: pnpm
       - run: pnpm install --frozen-lockfile
-      - run: ./scripts/ci-unit.sh
+      - run: pnpm verify:ci
 
   e2e:
     name: Playwright E2E

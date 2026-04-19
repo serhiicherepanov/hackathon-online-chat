@@ -10,6 +10,7 @@
     "start": "next start",
     "lint": "next lint",
     "typecheck": "tsc --noEmit",
+    "verify:ci": "bash ./scripts/ci-unit.sh && pnpm build",
     "test": "vitest run",
     "test:watch": "vitest",
     "test:e2e": "playwright test",

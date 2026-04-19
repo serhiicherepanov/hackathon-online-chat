@@ -9,15 +9,27 @@ const PASSWORD_RESET_TTL_MS = 1000 * 60 * 30;
 
 type PasswordResetStore = {
   passwordResetToken: {
-    create: typeof prisma.passwordResetToken.create;
-    findFirst: typeof prisma.passwordResetToken.findFirst;
-    updateMany: typeof prisma.passwordResetToken.updateMany;
-    deleteMany: typeof prisma.passwordResetToken.deleteMany;
+    create: (args: unknown) => Promise<unknown>;
+    findFirst: (args: unknown) => Promise<{
+      id: string;
+      userId: string;
+      tokenHash: string;
+      expiresAt: Date;
+      usedAt: Date | null;
+      createdAt: Date;
+    } | null>;
+    updateMany: (args: unknown) => Promise<{ count: number }>;
+    deleteMany: (args: unknown) => Promise<unknown>;
   };
 };
 
-function getPasswordResetStore(db?: PasswordResetStore) {
-  return db ?? prisma;
+type PasswordResetDb = PasswordResetStore | Record<string, unknown>;
+
+function getPasswordResetStore(db?: PasswordResetDb): PasswordResetStore {
+  if (db && "passwordResetToken" in db) {
+    return db as PasswordResetStore;
+  }
+  return prisma as unknown as PasswordResetStore;
 }
 
 export function buildPasswordResetUrl(input: {
@@ -32,7 +44,7 @@ export function buildPasswordResetUrl(input: {
 
 export async function issuePasswordResetToken(
   userId: string,
-  db?: PasswordResetStore,
+  db?: PasswordResetDb,
 ): Promise<{ token: string; expiresAt: Date }> {
   const token = randomBytes(32).toString("base64url");
   const expiresAt = new Date(Date.now() + PASSWORD_RESET_TTL_MS);
@@ -50,7 +62,7 @@ export async function issuePasswordResetToken(
 
 export async function findValidPasswordResetToken(
   token: string,
-  db?: PasswordResetStore,
+  db?: PasswordResetDb,
 ) {
   return getPasswordResetStore(db).passwordResetToken.findFirst({
     where: {
@@ -63,7 +75,7 @@ export async function findValidPasswordResetToken(
 
 export async function markPasswordResetTokenUsed(
   tokenId: string,
-  db?: PasswordResetStore,
+  db?: PasswordResetDb,
 ): Promise<boolean> {
   const result = await getPasswordResetStore(db).passwordResetToken.updateMany({
     where: {
@@ -79,7 +91,7 @@ export async function markPasswordResetTokenUsed(
   return result.count === 1;
 }
 
-export async function deleteExpiredPasswordResetTokens(db?: PasswordResetStore) {
+export async function deleteExpiredPasswordResetTokens(db?: PasswordResetDb) {
   return getPasswordResetStore(db).passwordResetToken.deleteMany({
     where: {
       OR: [{ usedAt: { not: null } }, { expiresAt: { lte: new Date() } }],
