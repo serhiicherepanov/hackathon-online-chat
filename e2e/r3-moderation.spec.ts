@@ -30,6 +30,16 @@ async function joinRoom(api: APIRequestContext, roomId: string) {
   return res;
 }
 
+async function registerViaApi(
+  ctx: import("@playwright/test").BrowserContext,
+  user: { email: string; username: string; password: string },
+) {
+  const res = await ctx.request.post("/api/auth/register", {
+    data: { email: user.email, username: user.username, password: user.password },
+  });
+  expect(res.status()).toBe(201);
+}
+
 test.describe("R3 moderation regression coverage", () => {
   test("private room invite appears in the inbox and acceptance joins the room", async ({
     browser,
@@ -194,6 +204,9 @@ test.describe("R3 moderation regression coverage", () => {
       await expect(pageA.getByTestId("manage-room-tabs")).toContainText("Banned");
       await expect(pageA.getByTestId("manage-room-tabs")).toContainText("Invitations");
       await expect(pageA.getByTestId("manage-room-tabs")).toContainText("Settings");
+      const ownerManageMember = pageA.getByTestId(`manage-member-${users.b.username}`);
+      await expect(ownerManageMember.getByRole("button", { name: "Remove" })).toBeVisible();
+      await expect(ownerManageMember.getByRole("button", { name: "Ban" })).toBeVisible();
       await pageA.keyboard.press("Escape");
 
       await pageB.getByRole("button", { name: "Room actions" }).click();
@@ -207,6 +220,56 @@ test.describe("R3 moderation regression coverage", () => {
       await expect(pageB.getByTestId("manage-room-tabs")).toContainText("Banned");
       await expect(pageB.getByTestId("manage-room-tabs")).toContainText("Invitations");
       await expect(pageB.getByTestId("manage-room-tabs")).not.toContainText("Settings");
+    } finally {
+      await apiA.dispose();
+      await apiB.dispose();
+      await ctxA.close();
+      await ctxB.close();
+    }
+  });
+
+  test("manage room keeps remove separate from ban", async ({ browser }) => {
+    const users = makeUsers("r3rm");
+    const ctxA = await browser.newContext({ baseURL: e2eBaseURL() });
+    const ctxB = await browser.newContext({ baseURL: e2eBaseURL() });
+    const pageA = await ctxA.newPage();
+
+    await register(pageA, users.a);
+    await registerViaApi(ctxB, users.b);
+
+    const apiA = await authedApi(ctxA);
+    const apiB = await authedApi(ctxB);
+
+    try {
+      const userB = await getMe(apiB);
+      const roomName = `rm_${Date.now()}`;
+      const created = await createRoom(apiA, roomName, "public");
+      await joinRoom(apiB, created.room.id);
+
+      const removeRes = await apiA.delete(`/api/rooms/${created.room.id}/members/${userB.id}`);
+      expect(removeRes.status()).toBe(204);
+
+      const bansAfterRemove = await apiA.get(`/api/rooms/${created.room.id}/bans`);
+      expect(bansAfterRemove.status()).toBe(200);
+      expect((await bansAfterRemove.json()) as { bans: unknown[] }).toEqual({
+        bans: [],
+      });
+
+      const rejoinAfterRemove = await apiB.post(`/api/rooms/${created.room.id}/join`);
+      expect(rejoinAfterRemove.status()).toBe(200);
+
+      const banRes = await apiA.post(`/api/rooms/${created.room.id}/bans/${userB.id}`);
+      expect(banRes.status()).toBe(200);
+
+      const bansAfterBan = await apiA.get(`/api/rooms/${created.room.id}/bans`);
+      expect(bansAfterBan.status()).toBe(200);
+      const bansJson = (await bansAfterBan.json()) as {
+        bans: { userId: string }[];
+      };
+      expect(bansJson.bans.map((ban) => ban.userId)).toContain(userB.id);
+
+      const deniedRejoin = await apiB.post(`/api/rooms/${created.room.id}/join`);
+      expect(deniedRejoin.status()).toBe(403);
     } finally {
       await apiA.dispose();
       await apiB.dispose();

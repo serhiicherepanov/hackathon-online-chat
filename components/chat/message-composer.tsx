@@ -24,6 +24,20 @@ const EMPTY_CONV_STATE: {
   staged: StagedAttachment[];
 } = { replyTarget: null, staged: [] };
 
+export function insertTextAtRange(
+  value: string,
+  insert: string,
+  start: number,
+  end: number,
+): { value: string; caret: number } {
+  const safeStart = Math.max(0, Math.min(start, value.length));
+  const safeEnd = Math.max(safeStart, Math.min(end, value.length));
+  return {
+    value: value.slice(0, safeStart) + insert + value.slice(safeEnd),
+    caret: safeStart + insert.length,
+  };
+}
+
 function formatSize(n: number): string {
   if (n < 1024) return `${n} B`;
   if (n < 1024 * 1024) return `${(n / 1024).toFixed(1)} KB`;
@@ -47,6 +61,7 @@ export function MessageComposer({
   const [error, setError] = useState<string | null>(null);
   const [sending, setSending] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
+  const selectionRef = useRef({ start: 0, end: 0 });
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const fileInputId = useId();
   const lastTypingPublishRef = useRef(0);
@@ -215,20 +230,25 @@ export function MessageComposer({
 
   const insertAtCaret = useCallback((s: string) => {
     const el = textareaRef.current;
-    if (!el) {
-      setText((t) => t + s);
-      return;
-    }
-    const start = el.selectionStart ?? el.value.length;
-    const end = el.selectionEnd ?? el.value.length;
-    const next = el.value.slice(0, start) + s + el.value.slice(end);
-    setText(next);
+    const { start, end } = el
+      ? {
+          start: el.selectionStart ?? selectionRef.current.start,
+          end: el.selectionEnd ?? selectionRef.current.end,
+        }
+      : selectionRef.current;
+    const nextState = insertTextAtRange(text, s, start, end);
+    selectionRef.current = {
+      start: nextState.caret,
+      end: nextState.caret,
+    };
+    setText(nextState.value);
     requestAnimationFrame(() => {
-      el.focus();
-      const pos = start + s.length;
-      el.setSelectionRange(pos, pos);
+      const target = textareaRef.current;
+      if (!target) return;
+      target.focus();
+      target.setSelectionRange(nextState.caret, nextState.caret);
     });
-  }, []);
+  }, [text]);
 
   const onPaste = useCallback(
     (e: React.ClipboardEvent<HTMLTextAreaElement>) => {
@@ -348,7 +368,17 @@ export function MessageComposer({
           value={text}
           onChange={(e) => {
             setText(e.target.value);
+            selectionRef.current = {
+              start: e.target.selectionStart ?? e.target.value.length,
+              end: e.target.selectionEnd ?? e.target.value.length,
+            };
             if (e.target.value.trim().length > 0) publishTyping();
+          }}
+          onSelect={(e) => {
+            selectionRef.current = {
+              start: e.currentTarget.selectionStart ?? e.currentTarget.value.length,
+              end: e.currentTarget.selectionEnd ?? e.currentTarget.value.length,
+            };
           }}
           onPaste={onPaste}
           onKeyDown={(e) => {

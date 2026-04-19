@@ -235,6 +235,13 @@ export function RoomHeaderActions({
   }
 
   async function removeMember(userId: string) {
+    if (
+      !window.confirm(
+        "Remove this user from the room? They can join again later if they are invited or rejoin a public room.",
+      )
+    ) {
+      return;
+    }
     await mutate(`remove-${userId}`, async () => {
       const res = await fetch(`/api/rooms/${roomId}/members/${userId}`, {
         method: "DELETE",
@@ -244,7 +251,28 @@ export function RoomHeaderActions({
         return;
       }
       await refreshRoomQueries();
-      notify("Member removed", "The user was removed and banned from the room.");
+      notify("Member removed", "The user was removed from the room and can rejoin later.");
+    });
+  }
+
+  async function banMember(userId: string) {
+    if (
+      !window.confirm(
+        "Ban this user from the room? They will lose access immediately and cannot rejoin until you unban them.",
+      )
+    ) {
+      return;
+    }
+    await mutate(`ban-${userId}`, async () => {
+      const res = await fetch(`/api/rooms/${roomId}/bans/${userId}`, {
+        method: "POST",
+      });
+      if (!res.ok) {
+        notify("Could not ban member", errorMessage(await getErrorCode(res)));
+        return;
+      }
+      await refreshRoomQueries();
+      notify("Member banned", "The user was banned and cannot rejoin until unbanned.");
     });
   }
 
@@ -386,8 +414,8 @@ export function RoomHeaderActions({
           {activeTab === "members" ? (
             <div className="space-y-3">
               <p className="text-sm text-muted-foreground">
-                Remove members immediately or promote regular members when owner control
-                is required.
+                Remove members when they should be able to come back later, or ban them
+                when rejoin should stay blocked until an unban.
               </p>
               {members.isLoading ? (
                 <p className="text-sm text-muted-foreground">Loading members…</p>
@@ -420,15 +448,26 @@ export function RoomHeaderActions({
                         </Button>
                       ) : null}
                       {member.role !== "owner" ? (
-                        <Button
-                          type="button"
-                          size="sm"
-                          variant="outline"
-                          disabled={busyAction === `remove-${member.userId}`}
-                          onClick={() => void removeMember(member.userId)}
-                        >
-                          Remove
-                        </Button>
+                        <>
+                          <Button
+                            type="button"
+                            size="sm"
+                            variant="outline"
+                            disabled={busyAction === `remove-${member.userId}`}
+                            onClick={() => void removeMember(member.userId)}
+                          >
+                            Remove
+                          </Button>
+                          <Button
+                            type="button"
+                            size="sm"
+                            variant="destructive"
+                            disabled={busyAction === `ban-${member.userId}`}
+                            onClick={() => void banMember(member.userId)}
+                          >
+                            Ban
+                          </Button>
+                        </>
                       ) : null}
                     </div>
                   </div>

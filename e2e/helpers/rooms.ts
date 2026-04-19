@@ -1,12 +1,27 @@
 import type { Page } from "@playwright/test";
 
-export async function createPublicRoom(page: Page, name: string) {
+export async function createRoomFromCatalog(
+  page: Page,
+  {
+    name,
+    visibility = "public",
+  }: {
+    name: string;
+    visibility?: "public" | "private";
+  },
+) {
   await page.locator("main").getByRole("button", { name: "Create room" }).click();
-  const dialog = page.getByRole("dialog", { name: "Create a public room" });
+  const dialog = page.getByRole("dialog", { name: "Create room" });
   await dialog.locator("#room-name").fill(name);
+  await dialog.getByRole("button", { name: visibility === "public" ? "Public" : "Private" }).click();
   await dialog.getByRole("button", { name: "Create" }).click();
-  await page.getByRole("heading", { name: "Public rooms" }).waitFor();
-  await page.getByText(name, { exact: true }).first().waitFor({ state: "visible" });
+  await page.waitForURL(/\/rooms\/[^/]+$/, { timeout: 30_000 });
+}
+
+export async function createPublicRoom(page: Page, name: string) {
+  await createRoomFromCatalog(page, { name, visibility: "public" });
+  await page.goto("/rooms");
+  await page.waitForURL("**/rooms", { timeout: 30_000 });
 }
 
 export async function searchRoomCatalog(page: Page, query: string) {

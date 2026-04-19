@@ -2,6 +2,7 @@
 
 import { useQueryClient } from "@tanstack/react-query";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import { QueryBoundary } from "@/components/errors/query-boundary";
 import { Badge } from "@/components/ui/badge";
@@ -20,6 +21,7 @@ import { useRoomCatalog } from "@/lib/hooks/use-room-catalog";
 
 export default function RoomsCatalogPage() {
   const queryClient = useQueryClient();
+  const router = useRouter();
   const [search, setSearch] = useState("");
   const [debounced, setDebounced] = useState("");
 
@@ -33,6 +35,13 @@ export default function RoomsCatalogPage() {
   const [open, setOpen] = useState(false);
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
+  const [visibility, setVisibility] = useState<"public" | "private">("public");
+
+  function resetCreateRoomForm() {
+    setName("");
+    setDescription("");
+    setVisibility("public");
+  }
 
   async function createRoom() {
     const res = await fetch("/api/rooms", {
@@ -41,15 +50,18 @@ export default function RoomsCatalogPage() {
       body: JSON.stringify({
         name,
         description: description || undefined,
-        visibility: "public",
+        visibility,
       }),
     });
     if (!res.ok) return;
+    const json = (await res.json()) as { room?: { id?: string } };
+    const roomId = json.room?.id;
+    if (!roomId) return;
     setOpen(false);
-    setName("");
-    setDescription("");
+    resetCreateRoomForm();
     await queryClient.invalidateQueries({ queryKey: ["rooms"] });
     await queryClient.invalidateQueries({ queryKey: ["me", "rooms"] });
+    router.push(`/rooms/${roomId}`);
   }
 
   const rows = useMemo(() => catalog.data ?? [], [catalog.data]);
@@ -59,13 +71,21 @@ export default function RoomsCatalogPage() {
       <div className="border-b border-border bg-card/60 backdrop-blur-sm px-5 py-4 shadow-sm">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <h1 className="text-lg font-semibold">Public rooms</h1>
-          <Dialog open={open} onOpenChange={setOpen}>
+          <Dialog
+            open={open}
+            onOpenChange={(nextOpen) => {
+              setOpen(nextOpen);
+              if (!nextOpen) {
+                resetCreateRoomForm();
+              }
+            }}
+          >
             <DialogTrigger asChild>
               <Button size="sm">Create room</Button>
             </DialogTrigger>
             <DialogContent>
               <DialogHeader>
-                <DialogTitle>Create a public room</DialogTitle>
+                <DialogTitle>Create room</DialogTitle>
               </DialogHeader>
               <div className="space-y-3">
                 <div className="space-y-2">
@@ -83,6 +103,41 @@ export default function RoomsCatalogPage() {
                     value={description}
                     onChange={(e) => setDescription(e.target.value)}
                   />
+                </div>
+                <div className="space-y-2">
+                  <Label>Visibility</Label>
+                  <div className="grid gap-2 sm:grid-cols-2">
+                    <button
+                      type="button"
+                      className={`rounded-lg border p-3 text-left text-sm transition-colors ${
+                        visibility === "public"
+                          ? "border-primary bg-primary/5"
+                          : "border-border hover:border-primary/40"
+                      }`}
+                      onClick={() => setVisibility("public")}
+                      aria-pressed={visibility === "public"}
+                    >
+                      <div className="font-medium">Public</div>
+                      <p className="mt-1 text-muted-foreground">
+                        Listed in the room catalog so people can discover and join it.
+                      </p>
+                    </button>
+                    <button
+                      type="button"
+                      className={`rounded-lg border p-3 text-left text-sm transition-colors ${
+                        visibility === "private"
+                          ? "border-primary bg-primary/5"
+                          : "border-border hover:border-primary/40"
+                      }`}
+                      onClick={() => setVisibility("private")}
+                      aria-pressed={visibility === "private"}
+                    >
+                      <div className="font-medium">Private</div>
+                      <p className="mt-1 text-muted-foreground">
+                        Hidden from the catalog. People join after you invite them.
+                      </p>
+                    </button>
+                  </div>
                 </div>
               </div>
               <DialogFooter>
