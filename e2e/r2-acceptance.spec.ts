@@ -46,6 +46,15 @@ async function getFriendsSnapshot(api: APIRequestContext) {
 }
 
 test.describe("R2 acceptance (social graph)", () => {
+  // Multi-context social-graph tests drive two authenticated browsers and
+  // assert live friendship / presence / typing / block fanout. Inner expects
+  // already use 10–15s timeouts, which is only coherent with the 30s/15s
+  // budget from test.slow(). Apply it uniformly so tests don't flake on GHA
+  // runners when the default 10s test budget is consumed by setup alone.
+  test.beforeEach(() => {
+    test.slow();
+  });
+
   test("friend request acceptance unlocks first DM creation", async ({
     browser,
   }) => {

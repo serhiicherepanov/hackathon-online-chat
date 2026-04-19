@@ -2,7 +2,7 @@
 
 import type { Centrifuge, Subscription } from "centrifuge";
 import { useQueryClient } from "@tanstack/react-query";
-import { createContext, useContext, useEffect, useMemo, useState } from "react";
+import { createContext, useContext, useEffect, useMemo, useRef, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { createCentrifuge } from "@/lib/centrifuge";
 import { useActiveConversationStore } from "@/lib/stores/active-conversation-store";
@@ -102,6 +102,17 @@ export function CentrifugeProvider({
   const setConnectionState = useConnectionStore((s) => s.setState);
   const pushToast = useToastStore((s) => s.push);
 
+  // The realtime client must NOT be recreated on every navigation. The only
+  // reason `handleSocialEvent` needs `pathname` is to decide whether to
+  // `router.replace("/rooms")` after a ban/delete event. Route it through a
+  // ref so route changes don't churn the WS connection — under slow runners
+  // that churn windows overlap with message fanout from other peers and
+  // causes realtime delivery to silently drop (see r1 9.5 flake on GHA).
+  const pathnameRef = useRef(pathname);
+  useEffect(() => {
+    pathnameRef.current = pathname;
+  }, [pathname]);
+
   useEffect(() => {
     const wsUrl = process.env.NEXT_PUBLIC_CENTRIFUGO_WS_URL;
     if (!wsUrl || !userId) {
@@ -186,7 +197,13 @@ export function CentrifugeProvider({
           data.type === "room.access.revoked" ||
           data.type === "room.deleted"
         ) {
-          handleSocialEvent(data, queryClient, router, pathname, pushToast);
+          handleSocialEvent(
+            data,
+            queryClient,
+            router,
+            pathnameRef.current,
+            pushToast,
+          );
           return;
         }
       });
@@ -225,7 +242,11 @@ export function CentrifugeProvider({
       setStatus("disconnected");
       setConnectionState("disconnected");
     };
-  }, [pathname, pushToast, queryClient, router, setConnectionState, userId]);
+    // `pathname` is intentionally excluded from the dep array — see the
+    // comment on `pathnameRef` above. Including it would recreate the
+    // Centrifuge client on every navigation and drop room publications that
+    // race with the reconnect window.
+  }, [pushToast, queryClient, router, setConnectionState, userId]);
 
   const value = useMemo(() => ({ client, status }), [client, status]);
 

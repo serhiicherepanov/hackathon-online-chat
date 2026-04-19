@@ -26,6 +26,16 @@ async function getConvIdForRoom(
 }
 
 test.describe("R1 acceptance (rich messaging)", () => {
+  // Every test in this file drives two browser contexts and asserts live
+  // realtime fanout between them. Several inner expects already wait up to
+  // 10s, which only makes sense with the 30s/15s budget that test.slow()
+  // provides — under the default 10s per-test budget the setup regularly
+  // eats the timeout before the final assertion runs. Apply test.slow()
+  // uniformly so GHA runners don't flake on multi-context overhead.
+  test.beforeEach(() => {
+    test.slow();
+  });
+
   test("9.3 image upload → peer sees thumbnail and can open lightbox", async ({
     browser,
   }) => {
@@ -127,13 +137,6 @@ test.describe("R1 acceptance (rich messaging)", () => {
   test("9.5 edit and delete are reflected live for peer", async ({
     browser,
   }) => {
-    // Two-context realtime test: both users register, join, and open the room
-    // before the send → receive assertion. Locally this finishes in ~2s, but
-    // on GHA `ubuntu-latest` runners the full setup routinely consumes most
-    // of the 10s per-test budget, leaving no room for the live fanout wait
-    // and causing spurious timeouts. Follows the same `test.slow()` pattern
-    // used by the presence test in r0-acceptance 13.4.
-    test.slow();
     const users = makeUsers("u95");
     const roomName = `ed_${users.a.username}`;
 

@@ -16,6 +16,15 @@ import {
 import { befriendContexts } from "./helpers/social";
 
 test.describe("R0 acceptance (13.x)", () => {
+  // R0 acceptance tests spin up multiple browser contexts, register users,
+  // join rooms, and assert realtime delivery (messages, unread, presence,
+  // scroll-pill). Inner expects already use timeouts up to 15s, which only
+  // fits under the 30s/15s budget test.slow() provides. Apply it across the
+  // whole describe so individual multi-context flows don't flake on GHA.
+  test.beforeEach(() => {
+    test.slow();
+  });
+
   test("13.2 public room: join, live message, unread clears when opening room", async ({
     browser,
   }) => {
@@ -98,7 +107,6 @@ test.describe("R0 acceptance (13.x)", () => {
   test("13.4 presence: peer offline when all tabs closed, online again after reopen", async ({
     browser,
   }) => {
-    test.slow();
     const users = makeUsers("t134");
     const roomName = `pres_${users.a.username}`;
 
