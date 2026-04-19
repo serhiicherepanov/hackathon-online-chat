@@ -18,7 +18,6 @@ import { Button } from "@/components/ui/button";
 import {
   Dialog,
   DialogContent,
-  DialogFooter,
   DialogHeader,
   DialogTitle,
   DialogTrigger,
@@ -38,6 +37,7 @@ import { useMyDmContacts } from "@/lib/hooks/use-dm-contacts";
 import { useMyRooms } from "@/lib/hooks/use-my-rooms";
 import { useRoomInvites } from "@/lib/hooks/use-room-invites";
 import { filterByPeerUsername } from "@/lib/social/filter-contacts";
+import type { AuthUser } from "@/lib/stores/auth-store";
 import { useAuthStore } from "@/lib/stores/auth-store";
 import { useConnectionStore } from "@/lib/stores/connection-store";
 import { useToastStore } from "@/lib/stores/toast-store";
@@ -60,14 +60,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       const res = await fetch("/api/auth/me");
       if (res.status === 401) return null;
       if (!res.ok) throw new Error("me_failed");
-      const json = (await res.json()) as {
-        user: {
-          id: string;
-          email: string;
-          username: string;
-          createdAt: string;
-        };
-      };
+      const json = (await res.json()) as { user: AuthUser };
       return json.user;
     },
   });
@@ -116,7 +109,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const [dmQuery, setDmQuery] = useState("");
   const [inviteBusyId, setInviteBusyId] = useState<string | null>(null);
   const contacts = useContacts();
-  const friends = contacts.data?.friends ?? [];
+  const friends = useMemo(() => contacts.data?.friends ?? [], [contacts.data?.friends]);
   const filteredFriends = useMemo(
     () => filterByPeerUsername(friends, dmQuery),
     [friends, dmQuery],
@@ -228,6 +221,9 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end">
+                <DropdownMenuItem onClick={() => router.push("/settings")}>
+                  Settings
+                </DropdownMenuItem>
                 <DropdownMenuItem onClick={() => void signOut()}>
                   Sign out
                 </DropdownMenuItem>

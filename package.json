@@ -17,7 +17,12 @@
     "db:migrate": "prisma migrate deploy",
     "db:migrate:dev": "prisma migrate dev",
     "db:generate": "prisma generate",
-    "db:studio": "prisma studio"
+    "db:studio": "prisma studio",
+    "seed:social": "tsx scripts/seed-r2-social.ts",
+    "seed:benchmark-history": "tsx scripts/seed-r4-benchmark.ts",
+    "seed:loadtest-users": "tsx scripts/seed-r4-loadtest-users.ts",
+    "loadtest:realtime": "tsx scripts/load-test-realtime.ts",
+    "verify:r4-perf": "bash scripts/verify-r4-perf.sh"
   },
   "dependencies": {
     "@hookform/resolvers": "^5.2.2",
@@ -57,6 +62,7 @@
     "tailwind-merge": "^2.6.0",
     "ulid": "^3.0.2",
     "utf-8-validate": "^6.0.6",
+    "tsx": "^4.21.0",
     "ws": "^8.18.0",
     "zod": "^4.3.6",
     "zustand": "^5.0.2"

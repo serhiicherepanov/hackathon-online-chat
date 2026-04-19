@@ -78,6 +78,7 @@ services:
       SESSION_SECRET: "${SESSION_SECRET:-dev-session-secret-change-me-32chars!!}"
       SESSION_COOKIE_DOMAIN: "${SESSION_COOKIE_DOMAIN:-}"
       UPLOADS_DIR: "${UPLOADS_DIR:-/app/uploads}"
+      PASSWORD_RESET_DELIVERY_FILE: "${PASSWORD_RESET_DELIVERY_FILE:-/app/uploads/password-reset-deliveries.log}"
       LOG_LEVEL: "${LOG_LEVEL:-info}"
       NODE_ENV: "development"
       PORT: "3080"

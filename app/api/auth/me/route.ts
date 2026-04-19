@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { serializeAuthUser } from "@/lib/auth/serialize";
 import { requireSessionUser, touchSessionLastSeen } from "@/lib/auth/session";
 
 export const runtime = "nodejs";
@@ -11,11 +12,6 @@ export async function GET() {
   await touchSessionLastSeen();
 
   return NextResponse.json({
-    user: {
-      id: gate.user.id,
-      email: gate.user.email,
-      username: gate.user.username,
-      createdAt: gate.user.createdAt,
-    },
+    user: serializeAuthUser(gate.user),
   });
 }

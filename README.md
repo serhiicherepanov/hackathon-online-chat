@@ -66,9 +66,10 @@ Traefik waits for it before starting.
 Smoke checks once the stack is up:
 
 - `http://localhost:3080/` — landing page
-- `http://localhost:3080/sign-up` / `/sign-in`
+- `http://localhost:3080/sign-up` / `/sign-in` / `/forgot-password`
 - `http://localhost:3080/rooms` — catalog (after sign-in)
-- `http://localhost:3080/api/health` — `{"status":"ok","db":"up"}`
+- `http://localhost:3080/settings` — profile, password, sessions, and delete-account UI
+- `http://localhost:3080/api/health` — `{"status":"ok","db":"up","centrifugo":"up"}`
 
 JSON logs stream via `docker compose logs -f app`; pipe through `pino-pretty`
 for human-readable output.
@@ -88,6 +89,7 @@ defaults.
 | `SESSION_SECRET`                | iron-session password (≥ 32 chars in production)    |
 | `SESSION_COOKIE_DOMAIN`         | Optional shared cookie domain, e.g. `.example.com` |
 | `UPLOADS_DIR`                   | Path for uploaded files                             |
+| `PASSWORD_RESET_DELIVERY_FILE`  | Optional JSONL artifact file for dev/test reset URLs |
 | `LOG_LEVEL`                     | pino log level (default `info`)                     |
 
 ## Production mode
@@ -131,6 +133,66 @@ pnpm db:studio    # open Prisma Studio
 ```
 
 For end-to-end testing and CI scripts see [`TESTING.md`](TESTING.md).
+
+### Demo and benchmark seeds
+
+Seed the reviewer-friendly social graph from the running app container:
+
+```bash
+docker compose exec app pnpm seed:social
+```
+
+This creates demo users `alice`, `bob`, `carol`, and `dave` with password
+`password1234`, plus accepted/pending/block relationships for the contacts and
+DM flows.
+
+Seed the large-history benchmark fixture:
+
+```bash
+docker compose exec app pnpm seed:benchmark-history
+```
+
+This creates (or tops up) the public room `r4-benchmark-10k` so it contains at
+least 10,000 persisted messages, owned by `bench_admin`.
+
+### Realtime load test (~300 clients)
+
+From the **app** container (uses internal `centrifugo:3080` for WebSocket and HTTP
+API — see `scripts/load-test-realtime.ts`):
+
+```bash
+docker compose exec app pnpm seed:loadtest-users
+docker compose exec app pnpm loadtest:realtime
+```
+
+This seeds users `lt4_000` … `lt4_<N-1>` plus shared room `r4-loadtest-presence`,
+opens `N` concurrent `centrifuge-js` connections with the same subscriptions as
+production (`user:{id}`, `presence`, `room:{conversationId}`), samples Centrifugo
+room presence, publishes one room event to measure fan-out latency, and prints
+JSON metrics (connect / subscribe / delivery percentiles).
+
+Capture a full R4 performance log (benchmark seed + load test) under `test-artifacts/`:
+
+```bash
+docker compose exec app pnpm verify:r4-perf
+```
+
+If `pnpm tsx` or new scripts are missing inside the container, the `app_node_modules`
+named volume can be masking an outdated install. Recreate it (after stopping the
+stack) with `docker volume rm <project>_app_node_modules`, then bring the stack
+back up and run `docker compose exec app pnpm install`.
+
+### Password reset delivery
+
+In development and e2e, password reset requests also append JSON lines to
+`${PASSWORD_RESET_DELIVERY_FILE}` inside the app container. The default path is:
+
+```bash
+/app/uploads/password-reset-deliveries.log
+```
+
+That keeps the API response generic while still giving reviewers and automated
+tests a real dev/test delivery artifact to inspect.
 
 ### Attachments
 

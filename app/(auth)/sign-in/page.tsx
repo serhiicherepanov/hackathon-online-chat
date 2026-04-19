@@ -72,6 +72,11 @@ function SignInForm() {
             Continue
           </Button>
           <p className="text-center text-sm text-muted-foreground">
+            <Link className="underline" href="/forgot-password">
+              Forgot your password?
+            </Link>
+          </p>
+          <p className="text-center text-sm text-muted-foreground">
             No account?{" "}
             <Link className="underline" href="/sign-up">
               Create one

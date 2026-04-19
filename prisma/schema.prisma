@@ -49,24 +49,28 @@ model User {
   email        String   @unique
   username     String   @unique
   passwordHash String
+  displayName  String?
+  avatarUrl    String?
+  deletedAt    DateTime?
   createdAt    DateTime @default(now())
 
-  sessions       Session[]
-  roomMembers    RoomMember[]
-  roomInvites    RoomInvite[]   @relation("RoomInvitee")
-  roomInvitesSent RoomInvite[]  @relation("RoomInviter")
-  roomBans       RoomBan[]
-  roomBansIssued RoomBan[]      @relation("RoomBannedBy")
-  dmParticipants DmParticipant[]
-  messages       Message[]
-  messageReads   MessageRead[]
-  attachments    Attachment[]
-  friendshipsA   Friendship[]   @relation("FriendshipUserA")
-  friendshipsB   Friendship[]   @relation("FriendshipUserB")
-  sentRequests   Friendship[]   @relation("FriendshipRequestedBy")
-  blocksSent     UserBlock[]    @relation("UserBlocker")
-  blocksReceived UserBlock[]    @relation("UserBlocked")
-  presence       Presence?
+  sessions            Session[]
+  passwordResetTokens PasswordResetToken[]
+  roomMembers         RoomMember[]
+  roomInvites         RoomInvite[]   @relation("RoomInvitee")
+  roomInvitesSent     RoomInvite[]   @relation("RoomInviter")
+  roomBans            RoomBan[]
+  roomBansIssued      RoomBan[]      @relation("RoomBannedBy")
+  dmParticipants      DmParticipant[]
+  messages            Message[]
+  messageReads        MessageRead[]
+  attachments         Attachment[]
+  friendshipsA        Friendship[]   @relation("FriendshipUserA")
+  friendshipsB        Friendship[]   @relation("FriendshipUserB")
+  sentRequests        Friendship[]   @relation("FriendshipRequestedBy")
+  blocksSent          UserBlock[]    @relation("UserBlocker")
+  blocksReceived      UserBlock[]    @relation("UserBlocked")
+  presence            Presence?
 }
 
 model Session {
@@ -80,6 +84,20 @@ model Session {
   createdAt  DateTime @default(now())
 
   @@index([userId])
+  @@index([userId, lastSeenAt(sort: Desc)])
+}
+
+model PasswordResetToken {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tokenHash String   @unique
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime @default(now())
+
+  @@index([userId, createdAt(sort: Desc)])
+  @@index([expiresAt])
 }
 
 model Conversation {

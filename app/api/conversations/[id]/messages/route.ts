@@ -8,6 +8,10 @@ import {
   messageInclude,
   serializeMessage,
 } from "@/lib/messages/serialize";
+import {
+  decodeMessageCursor,
+  encodeMessageCursor,
+} from "@/lib/messages/history-cursor";
 import { prisma } from "@/lib/prisma";
 import { broadcastUnreadToUsers, publishMessageCreated } from "@/lib/realtime/emit";
 import type {
@@ -41,16 +45,31 @@ export async function GET(req: Request, ctx: Ctx) {
   }
 
   const url = new URL(req.url);
-  const before = url.searchParams.get("before");
+  const beforeRaw = url.searchParams.get("before");
+  const before = beforeRaw ? decodeMessageCursor(beforeRaw) : null;
   const limitRaw = Number(url.searchParams.get("limit") ?? "50");
   const limit = Number.isFinite(limitRaw)
     ? Math.min(100, Math.max(1, limitRaw))
     : 50;
 
+  if (beforeRaw && !before) {
+    return NextResponse.json({ error: "invalid_cursor" }, { status: 400 });
+  }
+
   const rows = await prisma.message.findMany({
     where: {
       conversationId: id,
-      ...(before ? { id: { lt: before } } : {}),
+      ...(before
+        ? {
+            OR: [
+              { createdAt: { lt: before.createdAt } },
+              {
+                createdAt: before.createdAt,
+                id: { lt: before.id },
+              },
+            ],
+          }
+        : {}),
     },
     orderBy: [{ createdAt: "desc" }, { id: "desc" }],
     take: limit + 1,
@@ -59,7 +78,14 @@ export async function GET(req: Request, ctx: Ctx) {
 
   const hasMore = rows.length > limit;
   const page = hasMore ? rows.slice(0, limit) : rows;
-  const nextCursor = hasMore ? page[page.length - 1]?.id ?? null : null;
+  const lastRow = page[page.length - 1];
+  const nextCursor =
+    hasMore && lastRow
+      ? encodeMessageCursor({
+          createdAt: lastRow.createdAt,
+          id: lastRow.id,
+        })
+      : null;
 
   return NextResponse.json({
     messages: page.map(serializeMessage),

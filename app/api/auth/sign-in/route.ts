@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { verifyPassword } from "@/lib/auth/password";
+import { serializeAuthUser } from "@/lib/auth/serialize";
 import { createBrowserSession } from "@/lib/auth/session";
 import { clientMeta } from "@/lib/http/client-meta";
 import { prisma } from "@/lib/prisma";
@@ -47,11 +48,6 @@ export async function POST(req: Request) {
   });
 
   return NextResponse.json({
-    user: {
-      id: user.id,
-      email: user.email,
-      username: user.username,
-      createdAt: user.createdAt,
-    },
+    user: serializeAuthUser(user),
   });
 }

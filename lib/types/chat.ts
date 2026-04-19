@@ -11,6 +11,7 @@ export type ReplyToDto = {
   id: string;
   authorId?: string;
   authorUsername?: string;
+  authorDisplayName?: string | null;
   bodyPreview?: string | null;
   deleted: boolean;
 };
@@ -24,7 +25,7 @@ export type MessageDto = {
   editedAt: string | null;
   deletedAt: string | null;
   deleted: boolean;
-  author: { id: string; username: string };
+  author: { id: string; username: string; displayName: string | null };
   attachments: AttachmentDto[];
   replyTo: ReplyToDto | null;
   pending?: boolean;

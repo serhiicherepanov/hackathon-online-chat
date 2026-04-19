@@ -14,6 +14,7 @@ export type ReplyToDto =
       id: string;
       authorId: string;
       authorUsername: string;
+      authorDisplayName: string | null;
       bodyPreview: string | null;
       deleted: boolean;
     }
@@ -28,16 +29,16 @@ export type MessagePayload = {
   editedAt: string | null;
   deletedAt: string | null;
   deleted: boolean;
-  author: { id: string; username: string };
+  author: { id: string; username: string; displayName: string | null };
   attachments: AttachmentDto[];
   replyTo: ReplyToDto | null;
 };
 
 export type MessageWithRelations = Message & {
-  author: { id: string; username: string };
+  author: { id: string; username: string; displayName: string | null };
   attachments: Attachment[];
   replyTo:
-    | (Message & { author: { id: string; username: string } })
+    | (Message & { author: { id: string; username: string; displayName: string | null } })
     | null;
 };
 
@@ -65,6 +66,7 @@ export function serializeMessage(m: MessageWithRelations): MessagePayload {
           id: m.replyTo.id,
           authorId: m.replyTo.authorId,
           authorUsername: m.replyTo.author.username,
+          authorDisplayName: m.replyTo.author.displayName,
           bodyPreview: m.replyTo.deletedAt ? null : previewBody(m.replyTo.body),
           deleted: !!m.replyTo.deletedAt,
         }
@@ -94,15 +96,22 @@ export function serializeMessage(m: MessageWithRelations): MessagePayload {
     author: m.author,
     attachments,
     replyTo: deleted && replyTo && "bodyPreview" in replyTo
-      ? { id: replyTo.id, authorId: replyTo.authorId, authorUsername: replyTo.authorUsername, bodyPreview: null, deleted: replyTo.deleted }
+      ? {
+          id: replyTo.id,
+          authorId: replyTo.authorId,
+          authorUsername: replyTo.authorUsername,
+          authorDisplayName: replyTo.authorDisplayName,
+          bodyPreview: null,
+          deleted: replyTo.deleted,
+        }
       : replyTo,
   };
 }
 
 export const messageInclude = {
-  author: { select: { id: true, username: true } },
+  author: { select: { id: true, username: true, displayName: true } },
   attachments: true,
   replyTo: {
-    include: { author: { select: { id: true, username: true } } },
+    include: { author: { select: { id: true, username: true, displayName: true } } },
   },
 } as const;
