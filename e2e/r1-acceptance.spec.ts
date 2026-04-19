@@ -1,4 +1,4 @@
-import { test, expect, request as pwRequest } from "@playwright/test";
+import { test, expect, request as pwRequest, type Page } from "@playwright/test";
 import { e2eBaseURL, makeUsers, register } from "./helpers/auth";
 import {
   createPublicRoom,
@@ -23,6 +23,20 @@ async function getConvIdForRoom(
     room: { conversationId: string };
   };
   return room.conversationId;
+}
+
+async function waitForEmptyConversation(page: Page): Promise<void> {
+  await expect(page.getByTestId("composer-input")).toBeVisible({
+    timeout: 10_000,
+  });
+  await expect(page.getByTestId("message-list-root")).toBeVisible({
+    timeout: 10_000,
+  });
+  await expect(
+    page.getByText("No messages yet. Start the conversation."),
+  ).toBeVisible({
+    timeout: 10_000,
+  });
 }
 
 test.describe("R1 acceptance (rich messaging)", () => {
@@ -263,6 +277,8 @@ test.describe("R1 acceptance (rich messaging)", () => {
     await searchRoomCatalog(pageB, roomName);
     await joinRoomFromCatalog(pageB, roomName);
     await openRoomFromCatalog(pageB, roomName);
+    await waitForEmptyConversation(pageA);
+    await waitForEmptyConversation(pageB);
 
     const connected = (page: typeof pageA) =>
       expect(page.locator("[data-realtime-status='connected']").first()).toBeVisible({
