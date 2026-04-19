@@ -1,7 +1,13 @@
 "use client";
 
 import Avatar from "boring-avatars";
-import { GENERATED_AVATAR_COLORS, GENERATED_AVATAR_VARIANT, getRoomAvatarSeed, getUserAvatarSeed } from "@/lib/avatar";
+import {
+  GENERATED_AVATAR_COLORS,
+  getGeneratedAvatarVariant,
+  getRoomAvatarSeed,
+  getUserAvatarSeed,
+  type GeneratedAvatarKind,
+} from "@/lib/avatar";
 import type { PresenceStatus } from "@/lib/realtime/payloads";
 import { PresenceBadge } from "@/components/chat/presence-badge";
 import {
@@ -12,20 +18,28 @@ import {
 import { cn } from "@/lib/utils";
 
 function GeneratedAvatar({
+  kind,
   seed,
   label,
   size,
 }: {
+  kind: GeneratedAvatarKind;
   seed: string;
   label: string;
   size: number;
 }) {
+  const variant = getGeneratedAvatarVariant(kind);
+
   return (
-    <span className="flex h-full w-full" aria-hidden="true">
+    <span
+      className="flex h-full w-full"
+      aria-hidden="true"
+      data-avatar-style={variant}
+    >
       <Avatar
         size={size}
         name={seed}
-        variant={GENERATED_AVATAR_VARIANT}
+        variant={variant}
         colors={[...GENERATED_AVATAR_COLORS]}
         square={false}
       />
@@ -63,6 +77,7 @@ export function UserAvatar({
       data-avatar-image={avatarUrl ? "uploaded" : "generated"}
       data-avatar-kind="user"
       data-avatar-seed={seed}
+      data-avatar-style={getGeneratedAvatarVariant("user")}
       data-testid={testId ?? "user-avatar"}
       data-user-id={userId}
       style={{ width: size, height: size }}
@@ -70,7 +85,7 @@ export function UserAvatar({
       <RadixAvatar className="h-full w-full">
         {avatarUrl ? <AvatarImage src={avatarUrl} alt={label} /> : null}
         <AvatarFallback className="bg-transparent text-transparent">
-          <GeneratedAvatar seed={seed} label={label} size={size} />
+          <GeneratedAvatar kind="user" seed={seed} label={label} size={size} />
         </AvatarFallback>
       </RadixAvatar>
       {presence ? (
@@ -107,11 +122,12 @@ export function RoomAvatar({
       data-avatar-image="generated"
       data-avatar-kind="room"
       data-avatar-seed={seed}
+      data-avatar-style={getGeneratedAvatarVariant("room")}
       data-room-id={roomId}
       data-testid={testId ?? "room-avatar"}
       style={{ width: size, height: size }}
     >
-      <GeneratedAvatar seed={seed} label={label} size={size} />
+      <GeneratedAvatar kind="room" seed={seed} label={label} size={size} />
     </span>
   );
 }
