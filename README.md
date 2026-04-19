@@ -69,7 +69,9 @@ for human-readable output.
 
 ## Environment variables
 
-All variables are documented in [`.env.example`](.env.example).
+Runtime variables are documented in [`.env.example`](.env.example). The
+Playwright pipeline's extra test-only knobs live in
+[`.env.e2e.example`](.env.e2e.example).
 
 | Variable                        | Purpose                                             |
 |---------------------------------|-----------------------------------------------------|
@@ -83,6 +85,7 @@ All variables are documented in [`.env.example`](.env.example).
 | `UPLOADS_DIR`                   | Path for uploaded files                             |
 | `PASSWORD_RESET_DELIVERY_FILE`  | Optional JSONL artifact file for dev/test reset URLs |
 | `LOG_LEVEL`                     | pino log level (default `info`)                     |
+| `E2E_FAKE_TIME`                | Playwright-only server seam that accepts synthetic presence timestamps from browser tests |
 
 ## Development mode (optional)
 

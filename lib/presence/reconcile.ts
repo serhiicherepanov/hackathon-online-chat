@@ -76,8 +76,8 @@ export async function reconcileUserPresence(userId: string): Promise<void> {
 
 export async function recordActivityAndPublish(
   userId: string,
+  now = new Date(),
 ): Promise<{ status: PresenceStatus; lastActiveAt: Date }> {
-  const now = new Date();
   await persistPresence(userId, "online", now);
   const count = await centrifugoPresenceClientCount(`user:${userId}`);
   const status = computePresenceStatus({
