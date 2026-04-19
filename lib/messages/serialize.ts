@@ -29,13 +29,23 @@ export type MessagePayload = {
   editedAt: string | null;
   deletedAt: string | null;
   deleted: boolean;
-  author: { id: string; username: string; displayName: string | null };
+  author: {
+    id: string;
+    username: string;
+    displayName: string | null;
+    avatarUrl: string | null;
+  };
   attachments: AttachmentDto[];
   replyTo: ReplyToDto | null;
 };
 
 export type MessageWithRelations = Message & {
-  author: { id: string; username: string; displayName?: string | null };
+  author: {
+    id: string;
+    username: string;
+    displayName?: string | null;
+    avatarUrl?: string | null;
+  };
   attachments: Attachment[];
   replyTo:
     | (Message & { author: { id: string; username: string; displayName?: string | null } })
@@ -97,6 +107,7 @@ export function serializeMessage(m: MessageWithRelations): MessagePayload {
       id: m.author.id,
       username: m.author.username,
       displayName: m.author.displayName ?? null,
+      avatarUrl: m.author.avatarUrl ?? null,
     },
     attachments,
     replyTo: deleted && replyTo && "bodyPreview" in replyTo

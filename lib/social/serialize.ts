@@ -1,7 +1,6 @@
 import type {
   Friendship,
   PresenceStatus,
-  User,
 } from "@prisma/client";
 
 export type SocialUserDto = {
@@ -9,9 +8,13 @@ export type SocialUserDto = {
   username: string;
 };
 
+export type SocialAvatarUserDto = SocialUserDto & {
+  avatarUrl: string | null;
+};
+
 export type FriendContactDto = {
   friendshipId: string;
-  peer: SocialUserDto;
+  peer: SocialAvatarUserDto;
   status: PresenceStatus;
   requestedAt: string;
   updatedAt: string;
@@ -69,22 +72,39 @@ export type DmFrozenEventPayload = {
   frozen: boolean;
 };
 
-type FriendshipWithUsers = Friendship & {
-  userA: Pick<User, "id" | "username">;
-  userB: Pick<User, "id" | "username">;
+type SocialUserLike = {
+  id: string;
+  username: string;
 };
 
-export function serializeSocialUser(user: Pick<User, "id" | "username">): SocialUserDto {
+type SocialAvatarUserLike = SocialUserLike & {
+  avatarUrl?: string | null;
+};
+
+type FriendshipWithUsers = Friendship & {
+  userA: SocialAvatarUserLike;
+  userB: SocialAvatarUserLike;
+};
+
+export function serializeSocialUser(user: SocialUserLike): SocialUserDto {
   return {
     id: user.id,
     username: user.username,
   };
 }
 
+export function serializeAvatarSocialUser(user: SocialAvatarUserLike): SocialAvatarUserDto {
+  return {
+    id: user.id,
+    username: user.username,
+    avatarUrl: user.avatarUrl ?? null,
+  };
+}
+
 export function getFriendshipPeer(
   friendship: FriendshipWithUsers,
   currentUserId: string,
-): Pick<User, "id" | "username"> {
+): SocialAvatarUserLike {
   return friendship.userAId === currentUserId ? friendship.userB : friendship.userA;
 }
 
@@ -95,7 +115,7 @@ export function serializeFriendContact(
 ): FriendContactDto {
   return {
     friendshipId: friendship.id,
-    peer: serializeSocialUser(getFriendshipPeer(friendship, currentUserId)),
+    peer: serializeAvatarSocialUser(getFriendshipPeer(friendship, currentUserId)),
     status,
     requestedAt: friendship.createdAt.toISOString(),
     updatedAt: friendship.updatedAt.toISOString(),
@@ -116,7 +136,7 @@ export function serializeFriendRequest(
 
 export function serializeFriendRequestEvent(
   friendshipId: string,
-  peer: Pick<User, "id" | "username">,
+  peer: SocialUserLike,
 ): FriendRequestEventPayload {
   return {
     type: "friend.request",
@@ -127,7 +147,7 @@ export function serializeFriendRequestEvent(
 
 export function serializeFriendAcceptedEvent(
   friendshipId: string,
-  peer: Pick<User, "id" | "username">,
+  peer: SocialUserLike,
 ): FriendAcceptedEventPayload {
   return {
     type: "friend.accepted",
@@ -137,7 +157,7 @@ export function serializeFriendAcceptedEvent(
 }
 
 export function serializeFriendRemovedEvent(
-  peer: Pick<User, "id" | "username">,
+  peer: SocialUserLike,
 ): FriendRemovedEventPayload {
   return {
     type: "friend.removed",
@@ -146,7 +166,7 @@ export function serializeFriendRemovedEvent(
 }
 
 export function serializeBlockCreatedEvent(
-  peer: Pick<User, "id" | "username">,
+  peer: SocialUserLike,
 ): BlockCreatedEventPayload {
   return {
     type: "block.created",
@@ -155,7 +175,7 @@ export function serializeBlockCreatedEvent(
 }
 
 export function serializeBlockRemovedEvent(
-  peer: Pick<User, "id" | "username">,
+  peer: SocialUserLike,
 ): BlockRemovedEventPayload {
   return {
     type: "block.removed",

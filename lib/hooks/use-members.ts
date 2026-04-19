@@ -3,6 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 export type MemberRow = {
   userId: string;
   username: string;
+  avatarUrl: string | null;
   role: "owner" | "admin" | "member";
   joinedAt: string;
 };

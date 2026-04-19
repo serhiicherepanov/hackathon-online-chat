@@ -2,9 +2,11 @@
 
 import { useRouter } from "next/navigation";
 import { useMemo, useState } from "react";
+import { UserAvatar } from "@/components/chat/user-avatar";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Separator } from "@/components/ui/separator";
+import { PRESENCE_LABEL } from "@/lib/avatar";
 import {
   useAcceptFriendRequest,
   useBlockUser,
@@ -16,13 +18,6 @@ import {
 } from "@/lib/hooks/use-contacts";
 import type { PresenceStatus } from "@/lib/realtime/payloads";
 import { filterByPeerUsername } from "@/lib/social/filter-contacts";
-import { cn } from "@/lib/utils";
-
-const STATUS_DOT: Record<PresenceStatus, string> = {
-  online: "bg-emerald-400",
-  afk: "bg-amber-400",
-  offline: "bg-muted-foreground/30",
-};
 
 export default function ContactsPage() {
   const router = useRouter();
@@ -223,14 +218,19 @@ export default function ContactsPage() {
                         void openDmWith(f.peer.username);
                       }
                     }}
-                    className="flex cursor-pointer items-center justify-between px-4 py-3 hover:bg-accent/50 focus:bg-accent/50 focus:outline-none transition-colors"
+                    className="flex cursor-pointer items-center justify-between px-4 py-3 transition-colors hover:bg-accent/50 focus:bg-accent/50 focus:outline-none"
+                    data-presence={f.status}
+                    title={PRESENCE_LABEL[f.status]}
                   >
-                    <div className="flex items-center gap-2">
-                      <span
-                        className={cn(
-                          "inline-block h-2 w-2 rounded-full",
-                          STATUS_DOT[f.status],
-                        )}
+                    <div className="flex items-center gap-3">
+                      <UserAvatar
+                        userId={f.peer.id}
+                        username={f.peer.username}
+                        avatarUrl={f.peer.avatarUrl}
+                        size={32}
+                        testId={`contacts-friend-avatar-${f.peer.id}`}
+                        presence={f.status as PresenceStatus}
+                        presenceTestId={`contacts-friend-presence-${f.peer.id}`}
                       />
                       <span className="font-medium">{f.peer.username}</span>
                     </div>

@@ -15,6 +15,7 @@ const friendshipInclude = {
     select: {
       id: true,
       username: true,
+      avatarUrl: true,
       presence: { select: { status: true } },
     },
   },
@@ -22,6 +23,7 @@ const friendshipInclude = {
     select: {
       id: true,
       username: true,
+      avatarUrl: true,
       presence: { select: { status: true } },
     },
   },

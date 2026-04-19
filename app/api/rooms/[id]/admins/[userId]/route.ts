@@ -39,6 +39,7 @@ async function changeRole(
       user: {
         select: {
           username: true,
+          avatarUrl: true,
         },
       },
     },
@@ -56,7 +57,7 @@ async function changeRole(
     where: { id: targetMembership.id },
     data: { role },
     include: {
-      user: { select: { username: true } },
+      user: { select: { username: true, avatarUrl: true } },
     },
   });
 
