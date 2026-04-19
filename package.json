@@ -6,7 +6,7 @@
   "postinstall": "prisma generate",
   "scripts": {
     "dev": "next dev",
-    "build": "next build",
+    "build": "pnpm db:generate && pnpm check:prisma-client && next build",
     "start": "next start",
     "lint": "next lint",
     "typecheck": "tsc --noEmit",
@@ -23,7 +23,8 @@
     "seed:benchmark-history": "tsx scripts/seed-r4-benchmark.ts",
     "seed:loadtest-users": "tsx scripts/seed-r4-loadtest-users.ts",
     "loadtest:realtime": "tsx scripts/load-test-realtime.ts",
-    "verify:r4-perf": "bash scripts/verify-r4-perf.sh"
+    "verify:r4-perf": "bash scripts/verify-r4-perf.sh",
+    "check:prisma-client": "tsx scripts/check-prisma-client.ts"
   },
   "dependencies": {
     "@hookform/resolvers": "^5.2.2",

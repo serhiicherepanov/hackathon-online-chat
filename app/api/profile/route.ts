@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { Prisma } from "@prisma/client";
 import { serializeAuthUser } from "@/lib/auth/serialize";
 import { requireSessionUser } from "@/lib/auth/session";
 import { prisma } from "@/lib/prisma";
@@ -23,31 +24,24 @@ export async function PATCH(req: Request) {
     return NextResponse.json({ error: "validation_error" }, { status: 400 });
   }
 
+  const updateData: Prisma.UserUpdateInput = {};
+  const userModel = Prisma.dmmf.datamodel.models.find((model) => model.name === "User");
+  const supportsDisplayName = Boolean(
+    userModel?.fields.some((field) => field.name === "displayName"),
+  );
+  if (supportsDisplayName && parsed.data.displayName !== undefined) {
+    (updateData as Record<string, unknown>).displayName =
+      parsed.data.displayName?.trim() === "" ? null : parsed.data.displayName;
+  }
+  if (parsed.data.avatarUrl !== undefined) {
+    updateData.avatarUrl = parsed.data.avatarUrl;
+  }
+
   const user = await prisma.user.update({
     where: {
       id: gate.user.id,
     },
-    data: {
-      ...(parsed.data.displayName !== undefined
-        ? {
-            displayName:
-              parsed.data.displayName?.trim() === ""
-                ? null
-                : parsed.data.displayName,
-          }
-        : {}),
-      ...(parsed.data.avatarUrl !== undefined
-        ? { avatarUrl: parsed.data.avatarUrl }
-        : {}),
-    },
-    select: {
-      id: true,
-      email: true,
-      username: true,
-      displayName: true,
-      avatarUrl: true,
-      createdAt: true,
-    },
+    data: updateData,
   });
 
   return NextResponse.json({

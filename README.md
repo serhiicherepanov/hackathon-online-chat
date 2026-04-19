@@ -38,15 +38,9 @@ Prerequisites: **Docker** (Compose v2). Nothing else is required on the host —
 Node.js, pnpm, Postgres, and Centrifugo all run inside containers.
 
 ```bash
-git clone <repo>
-cd <repo>
+git clone https://github.com/serhiicherepanov/hackathon-online-chat.git
+cd hackathon-online-chat
 cp .env.example .env
-# set production secrets/urls in .env:
-#   NEXT_PUBLIC_CENTRIFUGO_WS_URL=wss://your.domain/connection/websocket
-#   CENTRIFUGO_TOKEN_HMAC_SECRET=<random>
-#   CENTRIFUGO_API_KEY=<random>
-#   SESSION_SECRET=<32+ chars>
-#   SESSION_COOKIE_DOMAIN=.digitalspace.studio  # optional, shared subdomains
 docker compose -f docker-compose.prod.yml up -d --build
 # open http://localhost:3080
 ```
@@ -111,11 +105,12 @@ Most contributors never need pnpm on the host — every script runs inside the
 ```bash
 pnpm install      # runs `prisma generate` via postinstall
 pnpm dev          # Next.js dev server
-pnpm build        # production build
+pnpm build        # prisma generate + schema/client sync check + production build
 pnpm lint         # ESLint
 pnpm typecheck    # strict tsc --noEmit
 pnpm verify:ci    # prisma generate + lint + typecheck + unit tests + production build
 pnpm test         # Vitest unit tests
+pnpm check:prisma-client # fail if generated Prisma client is out of sync with prisma/schema.prisma
 pnpm db:migrate   # apply committed Prisma migrations
 pnpm db:generate  # regenerate Prisma Client
 pnpm db:studio    # open Prisma Studio

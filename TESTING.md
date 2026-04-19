@@ -84,8 +84,8 @@ prod image build `~900s`.
 
 | Script                        | What it does                                                                                  |
 | ----------------------------- | --------------------------------------------------------------------------------------------- |
-| `scripts/ci-unit.sh`          | Preflights tooling, runs `pnpm lint` → `pnpm typecheck` → `pnpm test`.                        |
-| `pnpm verify:ci`              | Runs `scripts/ci-unit.sh` and then `pnpm build` to catch deploy-time type/build regressions.  |
+| `scripts/ci-unit.sh`          | Preflights tooling, runs `pnpm exec prisma generate` → `pnpm check:prisma-client` → `pnpm lint` → `pnpm typecheck` → `pnpm test`. |
+| `pnpm verify:ci`              | Runs `scripts/ci-unit.sh` and then `pnpm build` (which also regenerates Prisma client + runs the sync check) to catch deploy-time regressions early. |
 | `scripts/ci-e2e.sh`           | Preflights, brings up the prod compose stack, waits for health, runs Playwright, dumps logs + HTML report to `test-artifacts/`, tears the stack down. |
 | `scripts/wait-for-health.sh`  | Polls `$1/api/health` until 200 or timeout.                                                   |
 

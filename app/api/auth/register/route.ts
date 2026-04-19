@@ -42,14 +42,6 @@ export async function POST(req: Request) {
   try {
     const user = await prisma.user.create({
       data: { email, username, passwordHash },
-      select: {
-        id: true,
-        email: true,
-        username: true,
-        displayName: true,
-        avatarUrl: true,
-        createdAt: true,
-      },
     });
     await createBrowserSession({
       userId: user.id,

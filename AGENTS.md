@@ -54,6 +54,7 @@ that targets the default branch, and default to "no" on ambiguity.
 Do this **before** you treat a change as done, push, or rely on CI—otherwise you can merge **broken imports** (e.g. `TS2307: Cannot find module '@/lib/…'`) when a route or script references a file that was never added, or a task checklist was ticked without the file existing on disk.
 
 - **Run `pnpm typecheck`** (`tsc --noEmit`). It catches missing modules, missing exports, and many bad call signatures in one pass. Prefer running it after any edit that adds imports or new files.
+- **Run `pnpm verify:ci` before push** (or at minimum `pnpm build`) for deploy parity. This catches build-time failures that `pnpm typecheck` alone can miss and enforces Prisma client/schema sync via `pnpm check:prisma-client`.
 - **Imports must resolve in the repo**: every new `@/…` path or relative import must point to a file that exists in the **same branch/commit** as the caller. Do not wire `app/api/…`, `scripts/*.ts`, or tests to a module that only appears in OpenSpec/tasks or narrative docs.
 - If you add a **shared helper** (`lib/…`), add the **`.ts` file in the same change** as the first import—never leave consumers pointing at a path you “will add next.”
 - When you touch **pure logic** or new components, also run **`pnpm test`** (see Testing below); CI runs typecheck + unit tests together.
@@ -285,24 +286,26 @@ test was both added and run successfully. If e2e is blocked by environment or
 infrastructure issues, say so explicitly, keep the task unchecked, and report the
 exact blocker instead of silently skipping it.
 
-**Always run the full e2e suite before every `git push`.** Unit tests and
+**Always run deploy-parity build checks + full e2e before every `git push`.** Unit tests and
 `pnpm typecheck` are necessary but not sufficient — they cannot catch
 regressions in realtime behavior, auth/session flows, migrations, Compose
-wiring, or anything else that only surfaces against the live stack. Before any
+wiring, Prisma client/schema drift, or anything else that only surfaces in
+the deployment toolchain. Before any
 `git push` (new branch, follow-up commit on an existing branch, PR update,
 force-with-lease, etc.), run:
 
 ```bash
+timeout 600 pnpm verify:ci 2>&1 | tee test-artifacts/pre-push-verify-ci.log | tail -n 5
 timeout 900 ./scripts/ci-e2e.sh 2>&1 | tee test-artifacts/pre-push-e2e.log | tail -n 5
 ```
 
-Only push after the suite exits green. If the suite fails, fix the issue and
-re-run the full suite — do not push with a red or skipped e2e run. The single
+Only push after both commands exit green. If either suite fails, fix the issue and
+re-run both — do not push with a red or skipped deploy/e2e run. The single
 narrow exception is a push that touches **only** non-runtime files (for
 example, `docs/**`, `README.md`, `openspec/**` text-only edits, `AGENTS.md`,
 `.md` files, or comments) and cannot by construction change application
 behavior; in that case, state explicitly in the commit/PR summary that the
-diff is docs-only and e2e was skipped for that reason. When in doubt, run it.
+diff is docs-only and deploy/e2e checks were skipped for that reason. When in doubt, run both.
 
 ### Iterating on a single e2e test (fast local loop)
 
