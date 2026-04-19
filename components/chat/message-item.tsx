@@ -313,7 +313,7 @@ export function MessageItem({
 
         {!deleted ? (
           <div
-            className="pointer-events-none ml-auto flex shrink-0 items-center gap-0.5 self-start rounded-md border border-border/60 bg-card/95 p-0.5 opacity-0 shadow-sm transition-opacity group-hover/message:pointer-events-auto group-hover/message:opacity-100 group-focus-within/message:pointer-events-auto group-focus-within/message:opacity-100"
+            className="ml-auto flex shrink-0 items-center gap-0.5 self-start rounded-md border border-border/60 bg-card/95 p-0.5 opacity-0 shadow-sm transition-opacity group-hover/message:opacity-100 group-focus-within/message:opacity-100 focus-within:opacity-100"
             data-testid="message-actions"
           >
             <Button
@@ -321,7 +321,7 @@ export function MessageItem({
               variant="ghost"
               size="icon"
               aria-label="Reply"
-              data-testid="reply-action"
+              data-testid="reply-action-inline"
               onClick={startReply}
               className="h-7 w-7"
             >
@@ -333,7 +333,7 @@ export function MessageItem({
                 variant="ghost"
                 size="icon"
                 aria-label="Edit"
-                data-testid="edit-action"
+                data-testid="edit-action-inline"
                 onClick={startEdit}
                 className="h-7 w-7"
               >
@@ -354,12 +354,18 @@ export function MessageItem({
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end">
-                <DropdownMenuItem onClick={startReply}>
+                <DropdownMenuItem
+                  onClick={startReply}
+                  data-testid="reply-action"
+                >
                   <Reply className="mr-2 h-4 w-4" /> Reply
                 </DropdownMenuItem>
                 {isAuthor ? (
                   <>
-                    <DropdownMenuItem onClick={startEdit}>
+                    <DropdownMenuItem
+                      onClick={startEdit}
+                      data-testid="edit-action"
+                    >
                       <Pencil className="mr-2 h-4 w-4" /> Edit
                     </DropdownMenuItem>
                     <DropdownMenuItem
