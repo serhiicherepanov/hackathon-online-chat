@@ -1,5 +1,6 @@
 import { fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
+import { useState } from "react";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "./accordion";
 
 describe("<AccordionTrigger />", () => {
@@ -39,9 +40,54 @@ describe("<AccordionTrigger />", () => {
     );
 
     const trigger = screen.getByRole("button", { name: "Section" });
-    fireEvent.click(screen.getByRole("button", { name: "Action" }));
+    const action = screen.getByRole("button", { name: "Action" });
+    const chevron = screen.getByTestId("accordion-chevron");
+
+    expect(
+      action.compareDocumentPosition(chevron) &
+        Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+
+    fireEvent.click(action);
 
     expect(onAction).toHaveBeenCalledTimes(1);
+    expect(trigger).toHaveAttribute("data-state", "closed");
+  });
+
+  it("can open an external action flow while the section stays collapsed", () => {
+    function Example() {
+      const [open, setOpen] = useState(false);
+
+      return (
+        <>
+          <Accordion type="single" collapsible defaultValue="section">
+            <AccordionItem value="section">
+              <AccordionTrigger
+                actions={
+                  <button type="button" onClick={() => setOpen(true)}>
+                    New DM
+                  </button>
+                }
+              >
+                Section
+              </AccordionTrigger>
+              <AccordionContent>Body</AccordionContent>
+            </AccordionItem>
+          </Accordion>
+          {open ? <div role="dialog" aria-label="Start a DM" /> : null}
+        </>
+      );
+    }
+
+    render(<Example />);
+
+    const trigger = screen.getByRole("button", { name: "Section" });
+    fireEvent.click(trigger);
+    expect(trigger).toHaveAttribute("data-state", "closed");
+
+    fireEvent.click(screen.getByRole("button", { name: "New DM" }));
+
+    expect(screen.getByRole("dialog", { name: "Start a DM" })).toBeInTheDocument();
     expect(trigger).toHaveAttribute("data-state", "closed");
   });
 });
