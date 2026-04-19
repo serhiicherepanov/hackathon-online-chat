@@ -127,6 +127,13 @@ test.describe("R1 acceptance (rich messaging)", () => {
   test("9.5 edit and delete are reflected live for peer", async ({
     browser,
   }) => {
+    // Two-context realtime test: both users register, join, and open the room
+    // before the send → receive assertion. Locally this finishes in ~2s, but
+    // on GHA `ubuntu-latest` runners the full setup routinely consumes most
+    // of the 10s per-test budget, leaving no room for the live fanout wait
+    // and causing spurious timeouts. Follows the same `test.slow()` pattern
+    // used by the presence test in r0-acceptance 13.4.
+    test.slow();
     const users = makeUsers("u95");
     const roomName = `ed_${users.a.username}`;
 
