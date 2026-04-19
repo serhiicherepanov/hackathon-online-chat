@@ -14,6 +14,7 @@ export function SidebarDmRow({
   unread,
   active,
   presence,
+  onClick,
 }: {
   conversationId: string;
   peer: {
@@ -24,10 +25,12 @@ export function SidebarDmRow({
   unread: number;
   active: boolean;
   presence: PresenceStatus;
+  onClick?: () => void;
 }) {
   return (
     <Link
       href={`/dm/${conversationId}`}
+      onClick={onClick}
       data-testid={`sidebar-dm-row-${peer.id}`}
       data-presence={presence}
       title={PRESENCE_LABEL[presence]}
@@ -55,6 +58,7 @@ export function SidebarRoomRow({
   room,
   unread,
   active,
+  onClick,
 }: {
   room: {
     id: string;
@@ -64,10 +68,12 @@ export function SidebarRoomRow({
   };
   unread: number;
   active: boolean;
+  onClick?: () => void;
 }) {
   return (
     <Link
       href={`/rooms/${room.id}`}
+      onClick={onClick}
       data-testid={`sidebar-room-row-${room.id}`}
       data-room-visibility={room.visibility}
       className={cn(
