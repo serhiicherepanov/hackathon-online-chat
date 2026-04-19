@@ -134,6 +134,50 @@ describe("<MessageList />", () => {
     expect(screen.queryByTestId("new-messages-pill")).not.toBeInTheDocument();
   });
 
+  it("snaps to the newest message when switching to another conversation", () => {
+    const { rerender } = render(
+      <MessageList
+        conversationId="conv-1"
+        messages={[buildMessage("m1", "hello"), buildMessage("m2", "world")]}
+        hasNextPage={false}
+        isFetchingNextPage={false}
+        fetchOlder={vi.fn()}
+      />,
+    );
+
+    act(() => {
+      vi.runAllTimers();
+      virtuosoState.props?.atBottomStateChange?.(false);
+    });
+
+    virtuosoState.scrollToIndex.mockClear();
+
+    rerender(
+      <MessageList
+        conversationId="conv-2"
+        messages={[
+          buildMessage("n1", "other room first", "conv-2"),
+          buildMessage("n2", "other room latest", "conv-2"),
+        ]}
+        hasNextPage={false}
+        isFetchingNextPage={false}
+        fetchOlder={vi.fn()}
+      />,
+    );
+
+    act(() => {
+      vi.runAllTimers();
+    });
+
+    expect(screen.getByText("other room latest")).toBeInTheDocument();
+    expect(virtuosoState.scrollToIndex).toHaveBeenCalledWith({
+      index: "LAST",
+      align: "end",
+      behavior: "auto",
+    });
+    expect(screen.queryByTestId("new-messages-pill")).not.toBeInTheDocument();
+  });
+
   it("clears stale new-message pill state when switching conversations", () => {
     const { rerender } = render(
       <MessageList

@@ -20,6 +20,7 @@ import {
   SidebarDmRow,
   SidebarRoomRow,
 } from "@/components/app/sidebar-conversation-row";
+import { SidebarInvitesList } from "@/components/app/sidebar-invites-list";
 import { UnreadBadge } from "@/components/app/unread-badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -113,6 +114,9 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const myRooms = useMyRooms();
   const invites = useRoomInvites();
   const dmContacts = useMyDmContacts();
+  const [friendInviteBusyId, setFriendInviteBusyId] = useState<string | null>(
+    null,
+  );
   const unreadMap = useUnreadStore((s) => s.map);
   const presenceMap = usePresenceStore((s) => s.map);
   const mergePresence = usePresenceStore((s) => s.merge);
@@ -129,6 +133,12 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     () => filterByPeerUsername(friends, dmQuery),
     [friends, dmQuery],
   );
+  const inboundFriendRequests = useMemo(
+    () => contacts.data?.inboundRequests ?? [],
+    [contacts.data?.inboundRequests],
+  );
+  const totalInvites =
+    (invites.data?.length ?? 0) + inboundFriendRequests.length;
   const dmPeerIds = useMemo(
     () =>
       Array.from(
@@ -238,6 +248,34 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       await invites.refetch();
     } finally {
       setInviteBusyId(null);
+    }
+  }
+
+  async function acceptFriendRequest(friendshipId: string) {
+    setFriendInviteBusyId(friendshipId);
+    try {
+      const res = await fetch(
+        `/api/friends/requests/${friendshipId}/accept`,
+        { method: "POST" },
+      );
+      if (!res.ok) return;
+      await queryClient.invalidateQueries({ queryKey: ["me", "friends"] });
+    } finally {
+      setFriendInviteBusyId(null);
+    }
+  }
+
+  async function declineFriendRequest(friendshipId: string) {
+    setFriendInviteBusyId(friendshipId);
+    try {
+      const res = await fetch(
+        `/api/friends/requests/${friendshipId}/decline`,
+        { method: "POST" },
+      );
+      if (!res.ok) return;
+      await queryClient.invalidateQueries({ queryKey: ["me", "friends"] });
+    } finally {
+      setFriendInviteBusyId(null);
     }
   }
 
@@ -408,47 +446,26 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                       <AccordionTrigger>
                         <span className="flex items-center gap-2">
                           Invites
-                          {invites.data?.length ? (
-                            <Badge variant="secondary">{invites.data.length}</Badge>
+                          {totalInvites > 0 ? (
+                            <Badge variant="secondary">{totalInvites}</Badge>
                           ) : null}
                         </span>
                       </AccordionTrigger>
                       <AccordionContent className="space-y-2">
-                        {invites.data?.length ? (
-                          invites.data.map((invite) => (
-                            <div
-                              key={invite.id}
-                              className="rounded-md border p-2 text-sm"
-                              data-testid={`room-invite-${invite.id}`}
-                            >
-                              <div className="font-medium">{invite.room.name}</div>
-                              <div className="text-xs text-muted-foreground">
-                                Invited by {invite.inviter.username}
-                              </div>
-                              <div className="mt-2 flex gap-2">
-                                <Button
-                                  size="sm"
-                                  onClick={() => void acceptInvite(invite.id)}
-                                  disabled={inviteBusyId === invite.id}
-                                >
-                                  Accept
-                                </Button>
-                                <Button
-                                  size="sm"
-                                  variant="outline"
-                                  onClick={() => void declineInvite(invite.id)}
-                                  disabled={inviteBusyId === invite.id}
-                                >
-                                  Decline
-                                </Button>
-                              </div>
-                            </div>
-                          ))
-                        ) : (
-                          <p className="text-sm text-muted-foreground">
-                            No pending invites.
-                          </p>
-                        )}
+                        <SidebarInvitesList
+                          roomInvites={invites.data ?? []}
+                          friendRequests={inboundFriendRequests}
+                          busyRoomInviteId={inviteBusyId}
+                          busyFriendRequestId={friendInviteBusyId}
+                          onAcceptRoomInvite={(id) => void acceptInvite(id)}
+                          onDeclineRoomInvite={(id) => void declineInvite(id)}
+                          onAcceptFriendRequest={(id) =>
+                            void acceptFriendRequest(id)
+                          }
+                          onDeclineFriendRequest={(id) =>
+                            void declineFriendRequest(id)
+                          }
+                        />
                       </AccordionContent>
                     </AccordionItem>
 

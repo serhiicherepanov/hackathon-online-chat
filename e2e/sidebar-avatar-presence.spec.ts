@@ -70,7 +70,7 @@ test.describe("sidebar-avatar-presence", () => {
       const sidebarDmBadge = pageA.getByTestId(`sidebar-dm-presence-${userB.id}`);
       const memberAvatar = pageA.getByTestId(`member-avatar-${userB.id}`);
       const memberBadge = pageA.getByTestId(`member-presence-${userB.id}`);
-      const roomAvatar = pageA.getByTestId(`sidebar-room-avatar-${created.room.id}`);
+      const roomAvatar = pageA.getByTestId(`sidebar-room-icon-${created.room.id}`);
       const roomMessage = pageA
         .getByTestId("message-item")
         .filter({ hasText: "avatar consistency message" })
@@ -92,8 +92,8 @@ test.describe("sidebar-avatar-presence", () => {
       expect(memberSeed).toBe(sidebarSeed);
       expect(messageSeed).toBe(sidebarSeed);
       await expect(roomAvatar).toHaveAttribute(
-        "data-avatar-seed",
-        `room:${created.room.id}`,
+        "data-room-visibility",
+        "public",
       );
 
       await pageA.goto("/contacts");

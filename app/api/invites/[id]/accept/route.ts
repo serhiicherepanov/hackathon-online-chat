@@ -1,8 +1,12 @@
 import { NextResponse } from "next/server";
 import { requireSessionUser } from "@/lib/auth/session";
 import { prisma } from "@/lib/prisma";
+import { publishMemberJoined } from "@/lib/realtime/emit";
 import { hasActiveRoomBan } from "@/lib/rooms/auth";
-import { serializeRoomSummary } from "@/lib/rooms/serialize";
+import {
+  serializeRoomMember,
+  serializeRoomSummary,
+} from "@/lib/rooms/serialize";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -127,18 +131,28 @@ export async function POST(_req: Request, ctx: Ctx) {
         },
       });
 
-      await tx.roomMember.create({
+      const createdMember = await tx.roomMember.create({
         data: {
           roomId: currentInvite.roomId,
           userId: gate.user.id,
           role: "member",
         },
+        include: {
+          user: { select: { username: true, avatarUrl: true } },
+        },
       });
 
-      return room;
+      return { room, createdMember };
     });
 
-    return NextResponse.json({ room: serializeRoomSummary(result) });
+    await publishMemberJoined(result.room.conversationId, {
+      type: "member.joined",
+      conversationId: result.room.conversationId,
+      roomId: result.room.id,
+      member: serializeRoomMember(result.createdMember),
+    });
+
+    return NextResponse.json({ room: serializeRoomSummary(result.room) });
   } catch (err) {
     const code = err instanceof Error ? err.message : "UNKNOWN";
     if (code === "INVITE_NOT_FOUND" || code === "ROOM_NOT_FOUND") {

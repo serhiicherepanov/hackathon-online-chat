@@ -61,7 +61,7 @@ test.describe("R0 acceptance (13.x)", () => {
 
     const ping = `e2e-ping-${Date.now()}`;
     await pageA.getByPlaceholder("Message").fill(ping);
-    await pageA.getByRole("button", { name: "Send" }).click();
+    await pageA.getByTestId("composer-send-btn").click();
 
     await expect(pageB.getByText(ping, { exact: true })).toBeVisible({
       timeout: 15_000,
@@ -101,7 +101,7 @@ test.describe("R0 acceptance (13.x)", () => {
 
     const dmBody = `dm-e2e-${Date.now()}`;
     await pageA.getByPlaceholder("Message").fill(dmBody);
-    await pageA.getByRole("button", { name: "Send" }).click();
+    await pageA.getByTestId("composer-send-btn").click();
 
     await expect(
       pageB.locator("aside").getByRole("link", { name: users.a.username }),
@@ -226,7 +226,7 @@ test.describe("R0 acceptance (13.x)", () => {
 
     const live = `live-pill-${Date.now()}`;
     await pageA.getByPlaceholder("Message").fill(live);
-    await pageA.getByRole("button", { name: "Send" }).click();
+    await pageA.getByTestId("composer-send-btn").click();
 
     await expect(pageA.getByTestId("new-messages-pill")).toBeVisible({
       timeout: 15_000,

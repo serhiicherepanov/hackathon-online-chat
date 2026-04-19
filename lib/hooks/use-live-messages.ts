@@ -4,12 +4,14 @@ import { useEffect } from "react";
 import type { MessageDto } from "@/lib/types/chat";
 import {
   memberBannedSchema,
+  memberJoinedSchema,
   messageDeletedSchema,
   messageUpdatedSchema,
   roleChangedSchema,
 } from "@/lib/realtime/payloads";
 import type {
   MemberBannedPayload,
+  MemberJoinedPayload,
   MessageCreatedPayload,
   MessageDeletedPayload,
   MessageUpdatedPayload,
@@ -17,6 +19,8 @@ import type {
   RoomDeletedPayload,
   RoomUpdatedPayload,
 } from "@/lib/realtime/payloads";
+import type { MemberRow } from "@/lib/hooks/use-members";
+import { reconcileMemberJoined } from "@/lib/hooks/reconcile-member-joined";
 
 type Pages = { pages: { messages: MessageDto[]; nextCursor: string | null }[]; pageParams: unknown[] };
 
@@ -54,6 +58,7 @@ export function useLiveMessages(
         | MessageDeletedPayload
         | RoleChangedPayload
         | MemberBannedPayload
+        | MemberJoinedPayload
         | RoomUpdatedPayload
         | RoomDeletedPayload
         | { type?: string };
@@ -155,6 +160,19 @@ export function useLiveMessages(
           }),
           queryClient.invalidateQueries({ queryKey: ["me", "rooms"] }),
         ]);
+        return;
+      }
+
+      if (data.type === "member.joined") {
+        const parsed = memberJoinedSchema.safeParse(data);
+        if (!parsed.success) return;
+        const { roomId, member } = parsed.data;
+        const membersKey = ["rooms", roomId, "members"];
+        queryClient.setQueryData(membersKey, (old: unknown) => {
+          if (!Array.isArray(old)) return old;
+          return reconcileMemberJoined(old as MemberRow[], member as MemberRow);
+        });
+        void queryClient.invalidateQueries({ queryKey: membersKey });
         return;
       }
 

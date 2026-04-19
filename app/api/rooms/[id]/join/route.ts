@@ -1,8 +1,12 @@
 import { NextResponse } from "next/server";
 import { requireSessionUser } from "@/lib/auth/session";
 import { prisma } from "@/lib/prisma";
+import { publishMemberJoined } from "@/lib/realtime/emit";
 import { hasActiveRoomBan } from "@/lib/rooms/auth";
-import { serializeRoomSummary } from "@/lib/rooms/serialize";
+import {
+  serializeRoomMember,
+  serializeRoomSummary,
+} from "@/lib/rooms/serialize";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -32,7 +36,13 @@ export async function POST(_req: Request, ctx: Ctx) {
     return NextResponse.json({ error: "banned" }, { status: 403 });
   }
 
-  await prisma.roomMember.upsert({
+  const existing = await prisma.roomMember.findUnique({
+    where: {
+      roomId_userId: { roomId: room.id, userId: gate.user.id },
+    },
+  });
+
+  const member = await prisma.roomMember.upsert({
     where: {
       roomId_userId: { roomId: room.id, userId: gate.user.id },
     },
@@ -42,11 +52,24 @@ export async function POST(_req: Request, ctx: Ctx) {
       role: "member",
     },
     update: {},
+    include: {
+      user: { select: { username: true, avatarUrl: true } },
+    },
   });
 
   const memberCount = await prisma.roomMember.count({
     where: { roomId: room.id },
   });
+
+  if (!existing) {
+    const payload = serializeRoomMember(member);
+    await publishMemberJoined(room.conversationId, {
+      type: "member.joined",
+      conversationId: room.conversationId,
+      roomId: room.id,
+      member: payload,
+    });
+  }
 
   return NextResponse.json({
     room: serializeRoomSummary(room),

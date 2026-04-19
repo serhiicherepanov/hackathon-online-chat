@@ -111,7 +111,7 @@ test.describe("R2 acceptance (social graph)", () => {
 
       const dmBody = `friend-dm-${Date.now()}`;
       await pageA.getByPlaceholder("Message").fill(dmBody);
-      await pageA.getByRole("button", { name: "Send" }).click();
+      await pageA.getByTestId("composer-send-btn").click();
 
       const dmLinkOnB = pageB.locator("aside").getByRole("link", {
         name: userA.username,
@@ -291,7 +291,7 @@ test.describe("R2 acceptance (social graph)", () => {
         timeout: 15_000,
       });
       await pageB.getByPlaceholder("Message").fill(afterUnblock);
-      await pageB.getByRole("button", { name: "Send" }).click();
+      await pageB.getByTestId("composer-send-btn").click();
       await expect(pageA.getByText(afterUnblock, { exact: true })).toBeVisible({
         timeout: 15_000,
       });
