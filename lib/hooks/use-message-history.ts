@@ -8,14 +8,14 @@ export function useMessageHistory(conversationId: string | undefined) {
     queryKey: ["conv", conversationId, "messages"],
     enabled: Boolean(conversationId),
     initialPageParam: undefined as string | undefined,
-    queryFn: async ({ pageParam }) => {
+    queryFn: async ({ pageParam, signal }) => {
       const url = new URL(
         `/api/conversations/${conversationId}/messages`,
         window.location.origin,
       );
       url.searchParams.set("limit", "50");
       if (pageParam) url.searchParams.set("before", pageParam);
-      const res = await fetch(url.toString());
+      const res = await fetch(url.toString(), { signal });
       if (!res.ok) throw new Error("messages_failed");
       return (await res.json()) as Page;
     },

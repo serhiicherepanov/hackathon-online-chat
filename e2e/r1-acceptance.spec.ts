@@ -36,6 +36,53 @@ test.describe("R1 acceptance (rich messaging)", () => {
     test.slow();
   });
 
+  test("9.2 emoji picker inserts into composer and fans out live", async ({
+    browser,
+  }) => {
+    const users = makeUsers("u92");
+    const roomName = `emo_${users.a.username}`;
+
+    const ctxA = await browser.newContext({ baseURL: e2eBaseURL() });
+    const ctxB = await browser.newContext({ baseURL: e2eBaseURL() });
+    const pageA = await ctxA.newPage();
+    const pageB = await ctxB.newPage();
+
+    await register(pageA, users.a);
+    await register(pageB, users.b);
+
+    await createPublicRoom(pageA, roomName);
+    await openRoomFromCatalog(pageA, roomName);
+    await pageB.goto("/rooms");
+    await searchRoomCatalog(pageB, roomName);
+    await joinRoomFromCatalog(pageB, roomName);
+    await openRoomFromCatalog(pageB, roomName);
+
+    await pageA.getByTestId("composer-input").fill("hello ");
+    await pageA.getByTestId("composer-input").press("End");
+    await pageA.getByTestId("composer-emoji-btn").click();
+
+    const picker = pageA.getByTestId("emoji-picker");
+    await expect(picker).toBeVisible();
+    await picker.evaluate((node) => {
+      node.dispatchEvent(
+        new CustomEvent("emoji-click", {
+          detail: { unicode: "😀" },
+          bubbles: true,
+        }),
+      );
+    });
+
+    await expect(pageA.getByTestId("composer-input")).toHaveValue("hello 😀");
+    await pageA.getByTestId("composer-send-btn").click();
+
+    await expect(pageB.getByText("hello 😀", { exact: true })).toBeVisible({
+      timeout: 10_000,
+    });
+
+    await ctxA.close();
+    await ctxB.close();
+  });
+
   test("9.3 image upload → peer sees thumbnail and can open lightbox", async ({
     browser,
   }) => {

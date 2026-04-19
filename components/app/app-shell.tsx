@@ -5,6 +5,8 @@ import { MessageSquarePlus, Search, SquarePen } from "lucide-react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
+import { CopyUserIdButton } from "@/components/app/copy-user-id-button";
+import { AppToastViewport } from "@/components/app/app-toast-viewport";
 import { CentrifugeBoundary } from "@/components/errors/centrifuge-boundary";
 import { CentrifugeProvider } from "@/components/providers/centrifuge-provider";
 import {
@@ -264,21 +266,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           className="flex min-h-screen flex-col"
           data-realtime-status={realtimeStatus}
         >
-          <div className="pointer-events-none fixed right-4 top-4 z-50 flex w-80 flex-col gap-2">
-            {toasts.map((toast) => (
-              <div
-                key={toast.id}
-                className="pointer-events-auto rounded-md border bg-background/95 p-3 shadow-lg"
-              >
-                <div className="text-sm font-medium">{toast.title}</div>
-                {toast.description ? (
-                  <div className="mt-1 text-xs text-muted-foreground">
-                    {toast.description}
-                  </div>
-                ) : null}
-              </div>
-            ))}
-          </div>
+          <AppToastViewport toasts={toasts} />
           <header className="flex items-center justify-between border-b border-border bg-card/80 backdrop-blur-sm px-4 py-3 shadow-sm">
             <div className="flex items-center gap-3">
               <Link href="/rooms" className="font-semibold">
@@ -287,7 +275,11 @@ export function AppShell({ children }: { children: React.ReactNode }) {
               <Separator orientation="vertical" className="h-6" />
               <span className="text-sm text-muted-foreground">
                 {user.username}
-                <span className="ml-2 text-xs opacity-70">#{user.id}</span>
+                <CopyUserIdButton
+                  userId={user.id}
+                  className="ml-2 align-middle"
+                  testId="current-user-id-button"
+                />
               </span>
             </div>
 
@@ -312,6 +304,102 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             <aside className="hidden w-80 shrink-0 border-r border-border sidebar-bg md:flex md:flex-col">
               <ScrollArea className="h-[calc(100vh-57px)]">
                 <div className="space-y-3 p-3">
+                  <Dialog open={dmOpen} onOpenChange={setDmOpen}>
+                    <DialogContent>
+                      <DialogHeader>
+                        <DialogTitle>Start a DM</DialogTitle>
+                      </DialogHeader>
+                      {friends.length === 0 ? (
+                        <div
+                          className="space-y-2 text-sm"
+                          data-testid="dm-picker-empty"
+                        >
+                          <p className="text-muted-foreground">
+                            You don&apos;t have any contacts yet.
+                          </p>
+                          <Button
+                            asChild
+                            size="sm"
+                            variant="outline"
+                            onClick={() => setDmOpen(false)}
+                          >
+                            <Link href="/contacts">Go to Contacts</Link>
+                          </Button>
+                        </div>
+                      ) : (
+                        <div
+                          className="space-y-2"
+                          data-testid="dm-picker"
+                        >
+                          <Input
+                            value={dmQuery}
+                            onChange={(e) => setDmQuery(e.target.value)}
+                            placeholder="Search contacts"
+                            aria-label="Search contacts"
+                          />
+                          <ScrollArea className="h-60 rounded border">
+                            <ul className="p-1">
+                              {filteredFriends.length === 0 ? (
+                                <li className="px-2 py-3 text-sm text-muted-foreground">
+                                  No contacts match.
+                                </li>
+                              ) : (
+                                filteredFriends.map((f) => (
+                                  <li key={f.friendshipId}>
+                                    <button
+                                      type="button"
+                                      className="w-full rounded px-2 py-2 text-left text-sm hover:bg-accent focus:bg-accent focus:outline-none"
+                                      onClick={() =>
+                                        void startDm(f.peer.username)
+                                      }
+                                    >
+                                      {f.peer.username}
+                                    </button>
+                                  </li>
+                                ))
+                              )}
+                            </ul>
+                          </ScrollArea>
+                        </div>
+                      )}
+                    </DialogContent>
+                  </Dialog>
+
+                  <Dialog open={createRoomOpen} onOpenChange={setCreateRoomOpen}>
+                    <DialogContent>
+                      <DialogHeader>
+                        <DialogTitle>Create a public room</DialogTitle>
+                      </DialogHeader>
+                      <div className="space-y-3">
+                        <div className="space-y-2">
+                          <label htmlFor="sidebar-room-name" className="text-sm font-medium">
+                            Name
+                          </label>
+                          <Input
+                            id="sidebar-room-name"
+                            value={createRoomName}
+                            onChange={(event) => setCreateRoomName(event.target.value)}
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <label htmlFor="sidebar-room-description" className="text-sm font-medium">
+                            Description (optional)
+                          </label>
+                          <Input
+                            id="sidebar-room-description"
+                            value={createRoomDescription}
+                            onChange={(event) =>
+                              setCreateRoomDescription(event.target.value)
+                            }
+                          />
+                        </div>
+                        <Button type="button" onClick={() => void createRoomFromSidebar()}>
+                          Create
+                        </Button>
+                      </div>
+                    </DialogContent>
+                  </Dialog>
+
                   <Button asChild className="w-full" size="sm" variant="outline">
                     <Link href="/contacts">Contacts</Link>
                   </Button>
@@ -383,67 +471,6 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                         Direct messages
                       </AccordionTrigger>
                       <AccordionContent className="space-y-2">
-                        <Dialog open={dmOpen} onOpenChange={setDmOpen}>
-                          <DialogContent>
-                            <DialogHeader>
-                              <DialogTitle>Start a DM</DialogTitle>
-                            </DialogHeader>
-                            {friends.length === 0 ? (
-                              <div
-                                className="space-y-2 text-sm"
-                                data-testid="dm-picker-empty"
-                              >
-                                <p className="text-muted-foreground">
-                                  You don&apos;t have any contacts yet.
-                                </p>
-                                <Button
-                                  asChild
-                                  size="sm"
-                                  variant="outline"
-                                  onClick={() => setDmOpen(false)}
-                                >
-                                  <Link href="/contacts">Go to Contacts</Link>
-                                </Button>
-                              </div>
-                            ) : (
-                              <div
-                                className="space-y-2"
-                                data-testid="dm-picker"
-                              >
-                                <Input
-                                  value={dmQuery}
-                                  onChange={(e) => setDmQuery(e.target.value)}
-                                  placeholder="Search contacts"
-                                  aria-label="Search contacts"
-                                />
-                                <ScrollArea className="h-60 rounded border">
-                                  <ul className="p-1">
-                                    {filteredFriends.length === 0 ? (
-                                      <li className="px-2 py-3 text-sm text-muted-foreground">
-                                        No contacts match.
-                                      </li>
-                                    ) : (
-                                      filteredFriends.map((f) => (
-                                        <li key={f.friendshipId}>
-                                          <button
-                                            type="button"
-                                            className="w-full rounded px-2 py-2 text-left text-sm hover:bg-accent focus:bg-accent focus:outline-none"
-                                            onClick={() =>
-                                              void startDm(f.peer.username)
-                                            }
-                                          >
-                                            {f.peer.username}
-                                          </button>
-                                        </li>
-                                      ))
-                                    )}
-                                  </ul>
-                                </ScrollArea>
-                              </div>
-                            )}
-                          </DialogContent>
-                        </Dialog>
-
                         <div className="space-y-1">
                           {(dmContacts.data ?? []).map((c) => {
                             const active = pathname === `/dm/${c.conversationId}`;
@@ -496,40 +523,6 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                         Rooms
                       </AccordionTrigger>
                       <AccordionContent className="space-y-2">
-                        <Dialog open={createRoomOpen} onOpenChange={setCreateRoomOpen}>
-                          <DialogContent>
-                            <DialogHeader>
-                              <DialogTitle>Create a public room</DialogTitle>
-                            </DialogHeader>
-                            <div className="space-y-3">
-                              <div className="space-y-2">
-                                <label htmlFor="sidebar-room-name" className="text-sm font-medium">
-                                  Name
-                                </label>
-                                <Input
-                                  id="sidebar-room-name"
-                                  value={createRoomName}
-                                  onChange={(event) => setCreateRoomName(event.target.value)}
-                                />
-                              </div>
-                              <div className="space-y-2">
-                                <label htmlFor="sidebar-room-description" className="text-sm font-medium">
-                                  Description (optional)
-                                </label>
-                                <Input
-                                  id="sidebar-room-description"
-                                  value={createRoomDescription}
-                                  onChange={(event) =>
-                                    setCreateRoomDescription(event.target.value)
-                                  }
-                                />
-                              </div>
-                              <Button type="button" onClick={() => void createRoomFromSidebar()}>
-                                Create
-                              </Button>
-                            </div>
-                          </DialogContent>
-                        </Dialog>
                         <div className="space-y-1">
                           {(myRooms.data ?? []).map((r) => {
                             const active = pathname === `/rooms/${r.room.id}`;

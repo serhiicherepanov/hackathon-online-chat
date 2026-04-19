@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { createElement, useCallback, useEffect, useRef, useState } from "react";
 import {
   Popover,
   PopoverContent,
@@ -9,59 +9,64 @@ import {
 import { Button } from "@/components/ui/button";
 import { Smile } from "lucide-react";
 
-type Props = { onPick: (emoji: string) => void };
+type PickerModule = typeof import("emoji-picker-element");
+type Props = {
+  onPick: (emoji: string) => void;
+  loadPickerModule?: () => Promise<PickerModule>;
+};
 
 type EmojiClickDetail = {
   unicode?: string;
   emoji?: { unicode?: string };
 };
 
-export function EmojiPopover({ onPick }: Props) {
-  const hostRef = useRef<HTMLDivElement | null>(null);
+export function EmojiPopover({ onPick, loadPickerModule }: Props) {
   const [open, setOpen] = useState(false);
+  const [pickerElement, setPickerNode] = useState<HTMLElement | null>(null);
+  const [pickerReady, setPickerReady] = useState(false);
+  const pickerModuleRef = useRef<Promise<PickerModule> | null>(null);
+
+  const loadPickerModuleWithCache = () => {
+    if (loadPickerModule) return loadPickerModule();
+    pickerModuleRef.current ??= import("emoji-picker-element");
+    return pickerModuleRef.current;
+  };
 
   useEffect(() => {
     if (typeof window === "undefined") return;
-    void import("emoji-picker-element");
-  }, []);
-
-  useEffect(() => {
-    if (!open) return;
-    const host = hostRef.current;
-    if (!host) return;
-
     let disposed = false;
-    let cleanup: (() => void) | undefined;
 
-    void (async () => {
-      await import("emoji-picker-element");
-      await customElements.whenDefined("emoji-picker");
-      if (disposed) return;
-
-      host.replaceChildren();
-      const picker = document.createElement("emoji-picker");
-      const handler = (e: Event) => {
-        const detail = (e as CustomEvent<EmojiClickDetail>).detail;
-        const unicode = detail?.unicode ?? detail?.emoji?.unicode;
-        if (unicode) {
-          onPick(unicode);
-        }
-      };
-
-      picker.addEventListener("emoji-click", handler as EventListener);
-      host.appendChild(picker);
-      cleanup = () => {
-        picker.removeEventListener("emoji-click", handler as EventListener);
-        picker.remove();
-      };
-    })();
+    void loadPickerModuleWithCache().then(() => {
+      if (!disposed) {
+        setPickerReady(true);
+      }
+    });
 
     return () => {
       disposed = true;
-      cleanup?.();
-      host.replaceChildren();
     };
-  }, [onPick, open]);
+  }, []);
+
+  useEffect(() => {
+    if (!open || !pickerReady || !pickerElement) return;
+
+    const handler = (e: Event) => {
+      const detail = (e as CustomEvent<EmojiClickDetail>).detail;
+      const unicode = detail?.unicode ?? detail?.emoji?.unicode;
+      if (unicode) {
+        onPick(unicode);
+      }
+    };
+
+    pickerElement.addEventListener("emoji-click", handler as EventListener);
+    return () => {
+      pickerElement.removeEventListener("emoji-click", handler as EventListener);
+    };
+  }, [onPick, open, pickerElement, pickerReady]);
+
+  const setPickerElement = useCallback((node: Element | null) => {
+    setPickerNode(node as HTMLElement | null);
+  }, []);
 
   return (
     <Popover open={open} onOpenChange={setOpen} modal={false}>
@@ -76,8 +81,15 @@ export function EmojiPopover({ onPick }: Props) {
           <Smile className="h-5 w-5" />
         </Button>
       </PopoverTrigger>
-      <PopoverContent className="w-auto p-0" align="end">
-        <div ref={hostRef} />
+      <PopoverContent className="w-[22rem] p-0" align="end">
+        <div className="min-h-[27rem]">
+          {open && pickerReady
+            ? createElement("emoji-picker", {
+                ref: setPickerElement,
+                "data-testid": "emoji-picker",
+              })
+            : null}
+        </div>
       </PopoverContent>
     </Popover>
   );

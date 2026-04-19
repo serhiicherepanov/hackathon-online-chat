@@ -27,45 +27,81 @@ export function MessageList({
 }: MessageListProps) {
   const virtuosoRef = useRef<VirtuosoHandle>(null);
   const didSnapToBottomRef = useRef(false);
+  const atBottomRef = useRef(true);
+  const previousConversationIdRef = useRef(conversationId);
+  const previousLengthRef = useRef(messages.length);
+  const previousLastMessageIdRef = useRef(messages.at(-1)?.id ?? null);
   const [atBottom, setAtBottom] = useState(true);
-  const [newWhileAway, setNewWhileAway] = useState(false);
-  const lastSeenLenRef = useRef(messages.length);
-
-  useEffect(() => {
-    if (messages.length > lastSeenLenRef.current && !atBottom) {
-      setNewWhileAway(true);
-    }
-    lastSeenLenRef.current = messages.length;
-  }, [atBottom, messages.length]);
+  const [newWhileAwayConversationId, setNewWhileAwayConversationId] = useState<
+    string | null
+  >(null);
 
   useEffect(() => {
     didSnapToBottomRef.current = false;
-    lastSeenLenRef.current = 0;
-    setNewWhileAway(false);
+    atBottomRef.current = true;
+    previousConversationIdRef.current = conversationId;
+    previousLengthRef.current = messages.length;
+    previousLastMessageIdRef.current = messages.at(-1)?.id ?? null;
+    setNewWhileAwayConversationId(null);
     setAtBottom(true);
   }, [conversationId]);
 
-  useEffect(() => {
-    if (messages.length === 0 || didSnapToBottomRef.current) return;
-    didSnapToBottomRef.current = true;
+  const scheduleSnapToBottom = useCallback((behavior: "auto" | "smooth") => {
     let cancelled = false;
+
     const snap = () => {
       if (cancelled) return;
       virtuosoRef.current?.scrollToIndex({
         index: "LAST",
         align: "end",
-        behavior: "auto",
+        behavior,
       });
     };
+
     snap();
-    const t1 = window.setTimeout(snap, 50);
-    const t2 = window.setTimeout(snap, 200);
+    const raf = window.requestAnimationFrame(() => {
+      window.requestAnimationFrame(snap);
+    });
+    const timeout = window.setTimeout(snap, 50);
+
     return () => {
       cancelled = true;
-      window.clearTimeout(t1);
-      window.clearTimeout(t2);
+      window.cancelAnimationFrame(raf);
+      window.clearTimeout(timeout);
     };
-  }, [conversationId, messages.length]);
+  }, []);
+
+  useEffect(() => {
+    if (messages.length === 0 || didSnapToBottomRef.current) return;
+    didSnapToBottomRef.current = true;
+    const cancel = scheduleSnapToBottom("auto");
+    return cancel;
+  }, [conversationId, messages.length, scheduleSnapToBottom]);
+
+  useEffect(() => {
+    const lastMessageId = messages.at(-1)?.id ?? null;
+    const sameConversation = previousConversationIdRef.current === conversationId;
+    const appendedNewestMessage =
+      sameConversation &&
+      messages.length > previousLengthRef.current &&
+      lastMessageId !== previousLastMessageIdRef.current;
+
+    let cleanup: () => void = () => {};
+
+    if (appendedNewestMessage) {
+      if (atBottomRef.current) {
+        cleanup = scheduleSnapToBottom("auto");
+      } else {
+        setNewWhileAwayConversationId(conversationId);
+      }
+    }
+
+    previousConversationIdRef.current = conversationId;
+    previousLengthRef.current = messages.length;
+    previousLastMessageIdRef.current = lastMessageId;
+
+    return cleanup;
+  }, [conversationId, messages, scheduleSnapToBottom]);
 
   const items = useMemo(() => messages, [messages]);
 
@@ -105,10 +141,11 @@ export function MessageList({
           data={items}
         style={items.length === 0 ? { display: "none" } : undefined}
         initialTopMostItemIndex={Math.max(0, items.length - 1)}
-        followOutput={atBottom ? "smooth" : false}
+        followOutput={atBottom ? "auto" : false}
         atBottomStateChange={(bottom) => {
+          atBottomRef.current = bottom;
           setAtBottom(bottom);
-          if (bottom) setNewWhileAway(false);
+          if (bottom) setNewWhileAwayConversationId(null);
         }}
         startReached={() => {
           if (hasNextPage && !isFetchingNextPage) fetchOlder();
@@ -137,7 +174,7 @@ export function MessageList({
         />
       </div>
 
-      {newWhileAway ? (
+      {newWhileAwayConversationId === conversationId ? (
         <div className="pointer-events-none absolute bottom-3 left-0 right-0 flex justify-center">
           <Button
             type="button"
@@ -150,7 +187,7 @@ export function MessageList({
                 align: "end",
                 behavior: "smooth",
               });
-              setNewWhileAway(false);
+              setNewWhileAwayConversationId(null);
             }}
           >
             New messages

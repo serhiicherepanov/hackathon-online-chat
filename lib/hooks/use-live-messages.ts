@@ -62,31 +62,36 @@ export function useLiveMessages(
       if (data.type === "message.created") {
         const incoming = (data as MessageCreatedPayload).message;
         if ((data as MessageCreatedPayload).conversationId !== conversationId) return;
-        queryClient.setQueryData(key, (old: unknown) => {
-          if (!old || typeof old !== "object") {
-            return {
-              pages: [{ messages: [incoming as MessageDto], nextCursor: null }],
-              pageParams: [undefined],
-            } satisfies Pages;
-          }
-          const o = old as Pages;
-          if (!o.pages?.length) {
-            return {
-              ...o,
-              pages: [{ messages: [incoming as MessageDto], nextCursor: null }],
-              pageParams: o.pageParams?.length ? o.pageParams : [undefined],
-            };
-          }
-          const first = o.pages[0];
-          if (first.messages.some((m) => m.id === incoming.id)) return old;
-          return {
-            ...o,
-            pages: [
-              { ...first, messages: [incoming as MessageDto, ...first.messages] },
-              ...o.pages.slice(1),
-            ],
-          };
-        });
+        void queryClient
+          .cancelQueries({ queryKey: key })
+          .catch(() => undefined)
+          .then(() => {
+            queryClient.setQueryData(key, (old: unknown) => {
+              if (!old || typeof old !== "object") {
+                return {
+                  pages: [{ messages: [incoming as MessageDto], nextCursor: null }],
+                  pageParams: [undefined],
+                } satisfies Pages;
+              }
+              const o = old as Pages;
+              if (!o.pages?.length) {
+                return {
+                  ...o,
+                  pages: [{ messages: [incoming as MessageDto], nextCursor: null }],
+                  pageParams: o.pageParams?.length ? o.pageParams : [undefined],
+                };
+              }
+              const first = o.pages[0];
+              if (first.messages.some((m) => m.id === incoming.id)) return old;
+              return {
+                ...o,
+                pages: [
+                  { ...first, messages: [incoming as MessageDto, ...first.messages] },
+                  ...o.pages.slice(1),
+                ],
+              };
+            });
+          });
         return;
       }
 
