@@ -123,7 +123,7 @@ test.describe("R4 account management", () => {
       .click();
     await ownerPage.waitForURL(/\/dm\/[^/]+$/, { timeout: 30_000 });
     await ownerPage.getByPlaceholder("Message").fill(dmBody);
-    await ownerPage.getByRole("button", { name: "Send" }).click();
+    await ownerPage.getByTestId("composer-send-btn").click();
 
     await expect(
       memberPage.locator("aside").getByRole("link", { name: users.a.username }),

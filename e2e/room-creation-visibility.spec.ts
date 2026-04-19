@@ -28,7 +28,7 @@ test.describe("room creation visibility", () => {
     const privateSection = page.getByTestId("private-rooms-section");
     await expect(privateSection).toContainText(roomName);
     await expect(
-      privateSection.locator('[data-room-visibility="private"]'),
+      privateSection.locator('[data-room-visibility="private"]').first(),
     ).toBeVisible();
   });
 });

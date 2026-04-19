@@ -204,7 +204,7 @@ test.describe("R1 acceptance (rich messaging)", () => {
 
     const original = `first-${Date.now()}`;
     await pageA.getByPlaceholder("Message").fill(original);
-    await pageA.getByRole("button", { name: "Send" }).click();
+    await pageA.getByTestId("composer-send-btn").click();
 
     await expect(pageB.getByText(original, { exact: true })).toBeVisible({
       timeout: 10_000,
@@ -273,7 +273,7 @@ test.describe("R1 acceptance (rich messaging)", () => {
 
     const anchor = `anchor-${Date.now()}`;
     await pageA.getByPlaceholder("Message").fill(anchor);
-    await pageA.getByRole("button", { name: "Send" }).click();
+    await pageA.getByTestId("composer-send-btn").click();
     await expect(pageA.getByText(anchor, { exact: true })).toBeVisible({
       timeout: 10_000,
     });
