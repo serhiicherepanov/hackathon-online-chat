@@ -1,7 +1,14 @@
 "use client";
 
-import { Download, Image as ImageIcon, MoreHorizontal, Pencil, Reply, Trash2 } from "lucide-react";
-import { useCallback, useRef, useState } from "react";
+import {
+  Download,
+  Image as ImageIcon,
+  MoreHorizontal,
+  Pencil,
+  Reply,
+  Trash2,
+} from "lucide-react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import TextareaAutosize from "react-textarea-autosize";
 import {
   Dialog,
@@ -16,8 +23,11 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { UserAvatar } from "@/components/chat/user-avatar";
 import { useAuthStore } from "@/lib/stores/auth-store";
 import { useComposerStore } from "@/lib/stores/composer-store";
+import { useMessageInteractionStore } from "@/lib/stores/message-interaction-store";
+import { cn } from "@/lib/utils";
 import type { AttachmentDto, MessageDto } from "@/lib/types/chat";
 
 function formatSize(n: number): string {
@@ -93,15 +103,56 @@ export function MessageItem({
 }) {
   const me = useAuthStore((s) => s.user);
   const setReply = useComposerStore((s) => s.setReplyTarget);
+  const editRequestId = useMessageInteractionStore((s) => s.editRequestId);
+  const clearEditRequest = useMessageInteractionStore(
+    (s) => s.clearEditRequest,
+  );
+  const flashMessageId = useMessageInteractionStore((s) => s.flashMessageId);
+  const flashNonce = useMessageInteractionStore((s) => s.flashNonce);
+  const clearFlash = useMessageInteractionStore((s) => s.clearFlash);
+
   const [editing, setEditing] = useState(false);
   const [editText, setEditText] = useState(message.body ?? "");
   const [editError, setEditError] = useState<string | null>(null);
   const [confirmOpen, setConfirmOpen] = useState(false);
+  const [isFlashing, setIsFlashing] = useState(false);
   const editRef = useRef<HTMLTextAreaElement | null>(null);
+  const rootRef = useRef<HTMLDivElement | null>(null);
 
   const isAuthor = me?.id === message.authorId;
   const deleted = message.deleted;
   const bubbleClass = isAuthor ? "chat-bubble-sent" : "chat-bubble-received";
+
+  useEffect(() => {
+    if (editRequestId !== message.id) return;
+    if (deleted || !isAuthor) {
+      clearEditRequest();
+      return;
+    }
+    setEditText(message.body ?? "");
+    setEditing(true);
+    clearEditRequest();
+    requestAnimationFrame(() => {
+      rootRef.current?.scrollIntoView({ block: "end", behavior: "smooth" });
+    });
+  }, [
+    clearEditRequest,
+    deleted,
+    editRequestId,
+    isAuthor,
+    message.body,
+    message.id,
+  ]);
+
+  useEffect(() => {
+    if (flashMessageId !== message.id) return;
+    setIsFlashing(true);
+    const handle = window.setTimeout(() => {
+      setIsFlashing(false);
+      clearFlash();
+    }, 1000);
+    return () => window.clearTimeout(handle);
+  }, [clearFlash, flashMessageId, flashNonce, message.id]);
 
   const saveEdit = useCallback(async () => {
     setEditError(null);
@@ -126,22 +177,60 @@ export function MessageItem({
     await fetch(`/api/messages/${message.id}`, { method: "DELETE" });
   }, [message.id]);
 
+  const startReply = useCallback(() => {
+    setReply(message.conversationId, {
+      id: message.id,
+      authorUsername: message.author.username,
+      bodyPreview: (message.body ?? "").slice(0, 140),
+    });
+  }, [
+    message.author.username,
+    message.body,
+    message.conversationId,
+    message.id,
+    setReply,
+  ]);
+
+  const startEdit = useCallback(() => {
+    setEditText(message.body ?? "");
+    setEditing(true);
+  }, [message.body]);
+
   return (
     <div
-      className={`mx-3 my-2 rounded-xl px-4 py-3 shadow-sm transition-all hover:shadow-md ${bubbleClass}`}
+      ref={rootRef}
+      className={cn(
+        "group/message mx-3 my-2 rounded-xl px-4 py-3 shadow-sm transition-all hover:shadow-md focus-within:shadow-md",
+        bubbleClass,
+        isFlashing && "message-flash",
+      )}
       data-testid="message-item"
       data-message-id={message.id}
+      data-flashing={isFlashing ? "true" : "false"}
+      tabIndex={-1}
     >
-      <div className="flex items-start justify-between gap-2">
+      <div className="flex items-start gap-3">
+        <UserAvatar
+          userId={message.authorId}
+          username={message.author.username}
+          size={32}
+          className="mt-0.5"
+        />
+
         <div className="min-w-0 flex-1">
-          <div className="text-xs text-muted-foreground">
-            {message.author.username}{" "}
-            <span className="text-[10px]">
+          <div className="flex items-baseline gap-2 text-xs">
+            <span
+              className="font-semibold text-foreground"
+              data-testid="message-author"
+            >
+              {message.author.username}
+            </span>
+            <span className="text-[10px] text-muted-foreground">
               {new Date(message.createdAt).toLocaleString()}
             </span>
             {message.editedAt && !deleted ? (
               <span
-                className="ml-1 text-[10px] italic"
+                className="text-[10px] italic text-muted-foreground"
                 data-testid="edited-badge"
               >
                 (edited)
@@ -223,52 +312,73 @@ export function MessageItem({
         </div>
 
         {!deleted ? (
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
+          <div
+            className="ml-auto flex shrink-0 items-center gap-0.5 self-start rounded-md border border-border/60 bg-card/95 p-0.5 opacity-0 shadow-sm transition-opacity group-hover/message:opacity-100 group-focus-within/message:opacity-100 focus-within:opacity-100"
+            data-testid="message-actions"
+          >
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              aria-label="Reply"
+              data-testid="reply-action-inline"
+              onClick={startReply}
+              className="h-7 w-7"
+            >
+              <Reply className="h-4 w-4" />
+            </Button>
+            {isAuthor ? (
               <Button
                 type="button"
                 variant="ghost"
                 size="icon"
-                aria-label="Message actions"
-                data-testid="message-actions-btn"
+                aria-label="Edit"
+                data-testid="edit-action-inline"
+                onClick={startEdit}
+                className="h-7 w-7"
               >
-                <MoreHorizontal className="h-4 w-4" />
+                <Pencil className="h-4 w-4" />
               </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-              <DropdownMenuItem
-                onClick={() =>
-                  setReply(message.conversationId, {
-                    id: message.id,
-                    authorUsername: message.author.username,
-                    bodyPreview: (message.body ?? "").slice(0, 140),
-                  })
-                }
-                data-testid="reply-action"
-              >
-                <Reply className="mr-2 h-4 w-4" /> Reply
-              </DropdownMenuItem>
-              {isAuthor ? (
-                <>
-                  <DropdownMenuItem
-                    onClick={() => {
-                      setEditText(message.body ?? "");
-                      setEditing(true);
-                    }}
-                    data-testid="edit-action"
-                  >
-                    <Pencil className="mr-2 h-4 w-4" /> Edit
-                  </DropdownMenuItem>
-                  <DropdownMenuItem
-                    onClick={() => setConfirmOpen(true)}
-                    data-testid="delete-action"
-                  >
-                    <Trash2 className="mr-2 h-4 w-4" /> Delete
-                  </DropdownMenuItem>
-                </>
-              ) : null}
-            </DropdownMenuContent>
-          </DropdownMenu>
+            ) : null}
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  aria-label="Message actions"
+                  data-testid="message-actions-btn"
+                  className="h-7 w-7"
+                >
+                  <MoreHorizontal className="h-4 w-4" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem
+                  onClick={startReply}
+                  data-testid="reply-action"
+                >
+                  <Reply className="mr-2 h-4 w-4" /> Reply
+                </DropdownMenuItem>
+                {isAuthor ? (
+                  <>
+                    <DropdownMenuItem
+                      onClick={startEdit}
+                      data-testid="edit-action"
+                    >
+                      <Pencil className="mr-2 h-4 w-4" /> Edit
+                    </DropdownMenuItem>
+                    <DropdownMenuItem
+                      onClick={() => setConfirmOpen(true)}
+                      data-testid="delete-action"
+                    >
+                      <Trash2 className="mr-2 h-4 w-4" /> Delete
+                    </DropdownMenuItem>
+                  </>
+                ) : null}
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
         ) : null}
       </div>
 

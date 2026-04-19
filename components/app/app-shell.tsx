@@ -13,6 +13,7 @@ import {
   AccordionTrigger,
 } from "@/components/ui/accordion";
 import { Badge } from "@/components/ui/badge";
+import { UnreadBadge } from "@/components/app/unread-badge";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -38,6 +39,7 @@ import { useMyRooms } from "@/lib/hooks/use-my-rooms";
 import { useRoomInvites } from "@/lib/hooks/use-room-invites";
 import { filterByPeerUsername } from "@/lib/social/filter-contacts";
 import { useAuthStore } from "@/lib/stores/auth-store";
+import { useConnectionStore } from "@/lib/stores/connection-store";
 import { useToastStore } from "@/lib/stores/toast-store";
 import { useUnreadStore } from "@/lib/stores/unread-store";
 import { cn } from "@/lib/utils";
@@ -48,6 +50,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const setUser = useAuthStore((s) => s.setUser);
   const user = useAuthStore((s) => s.user);
   const setUnreadFromServer = useUnreadStore((s) => s.setFromServer);
+  const realtimeStatus = useConnectionStore((s) => s.state);
   const toasts = useToastStore((s) => s.toasts);
   const removeToast = useToastStore((s) => s.remove);
 
@@ -187,7 +190,10 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   return (
     <CentrifugeBoundary>
       <CentrifugeProvider userId={user.id}>
-        <div className="flex min-h-screen flex-col">
+        <div
+          className="flex min-h-screen flex-col"
+          data-realtime-status={realtimeStatus}
+        >
           <div className="pointer-events-none fixed right-4 top-4 z-50 flex w-80 flex-col gap-2">
             {toasts.map((toast) => (
               <div
@@ -253,14 +259,14 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                                 key={r.room.id}
                                 href={href}
                                 className={cn(
-                                  "flex items-center justify-between rounded-md px-2 py-1 text-sm hover:bg-accent",
+                                  "flex h-8 items-center gap-2 rounded-md px-2 text-sm hover:bg-accent",
                                   active && "bg-accent",
                                 )}
                               >
-                                <span className="truncate">{r.room.name}</span>
-                                {unread > 0 ? (
-                                  <Badge variant="secondary">{unread}</Badge>
-                                ) : null}
+                                <span className="min-w-0 flex-1 truncate">
+                                  {r.room.name}
+                                </span>
+                                <UnreadBadge count={unread} />
                               </Link>
                             );
                           })}
@@ -395,14 +401,14 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                                 key={c.conversationId}
                                 href={href}
                                 className={cn(
-                                  "flex items-center justify-between rounded-md px-2 py-1 text-sm hover:bg-accent",
+                                  "flex h-8 items-center gap-2 rounded-md px-2 text-sm hover:bg-accent",
                                   active && "bg-accent",
                                 )}
                               >
-                                <span className="truncate">{c.peer.username}</span>
-                                {unread > 0 ? (
-                                  <Badge variant="secondary">{unread}</Badge>
-                                ) : null}
+                                <span className="min-w-0 flex-1 truncate">
+                                  {c.peer.username}
+                                </span>
+                                <UnreadBadge count={unread} />
                               </Link>
                             );
                           })}

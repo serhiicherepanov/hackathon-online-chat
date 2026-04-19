@@ -47,6 +47,18 @@ test.describe("R0 acceptance (13.x)", () => {
     await joinRoomFromCatalog(pageB, roomName);
     await openRoomFromCatalog(pageB, roomName);
 
+    // Wait for Centrifugo to be connected on both tabs before fanning out a
+    // live message. Without this the peer sometimes subscribes to the room
+    // channel after `pageA` publishes, and the publication is silently
+    // dropped — see CI flake on GHA (13.2) where pageA's ping never lands on
+    // pageB.
+    const connected = (page: typeof pageA) =>
+      expect(page.locator("[data-realtime-status='connected']").first()).toBeVisible({
+        timeout: 20_000,
+      });
+    await connected(pageA);
+    await connected(pageB);
+
     const ping = `e2e-ping-${Date.now()}`;
     await pageA.getByPlaceholder("Message").fill(ping);
     await pageA.getByRole("button", { name: "Send" }).click();
