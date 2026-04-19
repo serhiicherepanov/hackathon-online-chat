@@ -52,7 +52,7 @@ test.describe("contacts-search-dm", () => {
     const dmUrlViaContacts = pageA.url();
 
     await pageA.goto("/rooms");
-    await pageA.getByRole("button", { name: "+ New DM" }).click();
+    await pageA.getByRole("button", { name: "New DM" }).click();
     const dialog = pageA.getByRole("dialog");
     await expect(dialog.getByText("Start a DM")).toBeVisible();
     await dialog

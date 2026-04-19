@@ -2,7 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 
 export type DmContactRow = {
   conversationId: string;
-  peer: { id: string; username: string };
+  peer: { id: string; username: string; avatarUrl: string | null };
   frozen: boolean;
 };
 

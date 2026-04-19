@@ -2,7 +2,7 @@
 
 import * as React from "react"
 import * as AccordionPrimitive from "@radix-ui/react-accordion"
-import { ChevronDown } from "lucide-react"
+import { ChevronRight } from "lucide-react"
 
 import { cn } from "@/lib/utils"
 
@@ -22,20 +22,27 @@ AccordionItem.displayName = "AccordionItem"
 
 const AccordionTrigger = React.forwardRef<
   React.ElementRef<typeof AccordionPrimitive.Trigger>,
-  React.ComponentPropsWithoutRef<typeof AccordionPrimitive.Trigger>
->(({ className, children, ...props }, ref) => (
-  <AccordionPrimitive.Header className="flex">
+  React.ComponentPropsWithoutRef<typeof AccordionPrimitive.Trigger> & {
+    actions?: React.ReactNode
+  }
+>(({ className, children, actions, ...props }, ref) => (
+  <AccordionPrimitive.Header className="flex items-center gap-1">
     <AccordionPrimitive.Trigger
       ref={ref}
       className={cn(
-        "flex flex-1 items-center justify-between py-3 text-sm font-medium transition-all hover:text-primary text-left [&[data-state=open]>svg]:rotate-180",
+        "flex flex-1 items-center justify-between py-3 text-left text-sm font-medium transition-all hover:text-primary [&[data-state=open]>svg]:rotate-90",
         className
       )}
       {...props}
     >
       {children}
-      <ChevronDown className="h-4 w-4 shrink-0 text-primary/60 transition-transform duration-200" />
+      <ChevronRight
+        className="h-4 w-4 shrink-0 text-primary/60 transition-transform duration-200"
+        data-testid="accordion-chevron"
+        data-direction="right"
+      />
     </AccordionPrimitive.Trigger>
+    {actions ? <div className="flex items-center gap-1">{actions}</div> : null}
   </AccordionPrimitive.Header>
 ))
 AccordionTrigger.displayName = AccordionPrimitive.Trigger.displayName

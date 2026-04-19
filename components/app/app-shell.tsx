@@ -1,6 +1,7 @@
 "use client";
 
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { MessageSquarePlus, Search, SquarePen } from "lucide-react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
@@ -14,13 +15,13 @@ import {
 } from "@/components/ui/accordion";
 import { Badge } from "@/components/ui/badge";
 import { UnreadBadge } from "@/components/app/unread-badge";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -42,7 +43,31 @@ import { useAuthStore } from "@/lib/stores/auth-store";
 import { useConnectionStore } from "@/lib/stores/connection-store";
 import { useToastStore } from "@/lib/stores/toast-store";
 import { useUnreadStore } from "@/lib/stores/unread-store";
+import { type PresenceRow, usePresenceStore } from "@/lib/stores/presence-store";
+import type { PresenceStatus } from "@/lib/realtime/payloads";
 import { cn } from "@/lib/utils";
+
+const DM_STATUS_LABEL: Record<PresenceStatus, string> = {
+  online: "Online",
+  afk: "Away",
+  offline: "Offline",
+};
+
+const DM_STATUS_DOT: Record<PresenceStatus, string> = {
+  online: "bg-emerald-500",
+  afk: "bg-amber-500",
+  offline: "bg-muted-foreground/40",
+};
+
+function toInitials(username: string): string {
+  const parts = username
+    .trim()
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 2);
+  if (parts.length === 0) return "?";
+  return parts.map((part) => part[0]?.toUpperCase() ?? "").join("");
+}
 
 export function AppShell({ children }: { children: React.ReactNode }) {
   const router = useRouter();
@@ -100,13 +125,19 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
   useActivityHeartbeat(Boolean(user?.id));
 
+  const queryClient = useQueryClient();
   const myRooms = useMyRooms();
   const invites = useRoomInvites();
   const dmContacts = useMyDmContacts();
   const unreadMap = useUnreadStore((s) => s.map);
+  const presenceMap = usePresenceStore((s) => s.map);
+  const mergePresence = usePresenceStore((s) => s.merge);
 
   const [dmOpen, setDmOpen] = useState(false);
   const [dmQuery, setDmQuery] = useState("");
+  const [createRoomOpen, setCreateRoomOpen] = useState(false);
+  const [createRoomName, setCreateRoomName] = useState("");
+  const [createRoomDescription, setCreateRoomDescription] = useState("");
   const [inviteBusyId, setInviteBusyId] = useState<string | null>(null);
   const contacts = useContacts();
   const friends = useMemo(() => contacts.data?.friends ?? [], [contacts.data?.friends]);
@@ -114,6 +145,46 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     () => filterByPeerUsername(friends, dmQuery),
     [friends, dmQuery],
   );
+  const dmPeerIds = useMemo(
+    () =>
+      Array.from(
+        new Set(
+          (dmContacts.data ?? [])
+            .map((row) => row.peer.id)
+            .filter((userId): userId is string => Boolean(userId)),
+        ),
+      ),
+    [dmContacts.data],
+  );
+
+  useEffect(() => {
+    if (dmPeerIds.length === 0) return;
+
+    const controller = new AbortController();
+    const batches: string[][] = [];
+    for (let index = 0; index < dmPeerIds.length; index += 1000) {
+      batches.push(dmPeerIds.slice(index, index + 1000));
+    }
+
+    void Promise.all(
+      batches.map(async (batch) => {
+        const res = await fetch(
+          `/api/presence?userIds=${encodeURIComponent(batch.join(","))}`,
+          { signal: controller.signal },
+        );
+        if (!res.ok) return [] as PresenceRow[];
+        const json = (await res.json()) as { presence?: PresenceRow[] };
+        return json.presence ?? [];
+      }),
+    )
+      .then((rowsByBatch) => {
+        if (controller.signal.aborted) return;
+        mergePresence(rowsByBatch.flat());
+      })
+      .catch(() => undefined);
+
+    return () => controller.abort();
+  }, [dmPeerIds, mergePresence]);
 
   async function startDm(username: string) {
     const u = username.trim();
@@ -127,6 +198,30 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     setDmQuery("");
     await dmContacts.refetch();
     router.push(`/dm/${json.conversationId}`);
+  }
+
+  async function createRoomFromSidebar() {
+    const name = createRoomName.trim();
+    if (!name) return;
+
+    const res = await fetch("/api/rooms", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        name,
+        description: createRoomDescription.trim() || undefined,
+        visibility: "public",
+      }),
+    });
+    if (!res.ok) return;
+
+    setCreateRoomOpen(false);
+    setCreateRoomName("");
+    setCreateRoomDescription("");
+    await Promise.all([
+      queryClient.invalidateQueries({ queryKey: ["rooms"] }),
+      queryClient.invalidateQueries({ queryKey: ["me", "rooms"] }),
+    ]);
   }
 
   async function signOut() {
@@ -238,39 +333,8 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                   <Button asChild className="w-full" size="sm" variant="outline">
                     <Link href="/contacts">Contacts</Link>
                   </Button>
-                  <Accordion type="multiple" defaultValue={["rooms", "invites", "dms"]}>
-                    <AccordionItem value="rooms">
-                      <AccordionTrigger>Rooms</AccordionTrigger>
-                      <AccordionContent className="space-y-2">
-                        <Button asChild className="w-full" size="sm" variant="secondary">
-                          <Link href="/rooms">Browse / create</Link>
-                        </Button>
-                        <div className="space-y-1">
-                          {(myRooms.data ?? []).map((r) => {
-                            const href = `/rooms/${r.room.id}`;
-                            const active = pathname === href;
-                            const unread = unreadMap[r.room.conversationId] ?? 0;
-                            return (
-                              <Link
-                                key={r.room.id}
-                                href={href}
-                                className={cn(
-                                  "flex h-8 items-center gap-2 rounded-md px-2 text-sm hover:bg-accent",
-                                  active && "bg-accent",
-                                )}
-                              >
-                                <span className="min-w-0 flex-1 truncate">
-                                  {r.room.name}
-                                </span>
-                                <UnreadBadge count={unread} />
-                              </Link>
-                            );
-                          })}
-                        </div>
-                      </AccordionContent>
-                    </AccordionItem>
-
-                    <AccordionItem value="invites">
+                  <Accordion type="multiple" defaultValue={["invites", "dms", "rooms"]}>
+                    <AccordionItem value="invites" data-testid="sidebar-section-invites">
                       <AccordionTrigger>
                         <span className="flex items-center gap-2">
                           Invites
@@ -318,15 +382,26 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                       </AccordionContent>
                     </AccordionItem>
 
-                    <AccordionItem value="dms">
-                      <AccordionTrigger>Direct messages</AccordionTrigger>
+                    <AccordionItem value="dms" data-testid="sidebar-section-dms">
+                      <AccordionTrigger
+                        actions={
+                          <Button
+                            type="button"
+                            size="icon"
+                            variant="ghost"
+                            className="h-7 w-7"
+                            aria-label="New DM"
+                            data-testid="sidebar-new-dm-button"
+                            onClick={() => setDmOpen(true)}
+                          >
+                            <MessageSquarePlus className="h-4 w-4" />
+                          </Button>
+                        }
+                      >
+                        Direct messages
+                      </AccordionTrigger>
                       <AccordionContent className="space-y-2">
                         <Dialog open={dmOpen} onOpenChange={setDmOpen}>
-                          <DialogTrigger asChild>
-                            <Button className="w-full" size="sm" variant="outline">
-                              + New DM
-                            </Button>
-                          </DialogTrigger>
                           <DialogContent>
                             <DialogHeader>
                               <DialogTitle>Start a DM</DialogTitle>
@@ -392,9 +467,125 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                             const href = `/dm/${c.conversationId}`;
                             const active = pathname === href;
                             const unread = unreadMap[c.conversationId] ?? 0;
+                            const status = presenceMap[c.peer.id] ?? "offline";
                             return (
                               <Link
                                 key={c.conversationId}
+                                href={href}
+                                data-testid={`sidebar-dm-row-${c.peer.id}`}
+                                data-presence={status}
+                                title={DM_STATUS_LABEL[status]}
+                                className={cn(
+                                  "flex h-9 items-center gap-2 rounded-md px-2 text-sm hover:bg-accent",
+                                  active && "bg-accent",
+                                )}
+                              >
+                                <Avatar
+                                  className="h-6 w-6"
+                                  data-testid={`sidebar-dm-avatar-${c.peer.id}`}
+                                >
+                                  {c.peer.avatarUrl ? (
+                                    <AvatarImage
+                                      src={c.peer.avatarUrl}
+                                      alt={`${c.peer.username} avatar`}
+                                    />
+                                  ) : null}
+                                  <AvatarFallback className="text-[10px]">
+                                    {toInitials(c.peer.username)}
+                                  </AvatarFallback>
+                                </Avatar>
+                                <span
+                                  className={cn(
+                                    "h-2 w-2 rounded-full",
+                                    DM_STATUS_DOT[status],
+                                  )}
+                                  aria-label={DM_STATUS_LABEL[status]}
+                                />
+                                <span className="min-w-0 flex-1 truncate">
+                                  {c.peer.username}
+                                </span>
+                                <UnreadBadge count={unread} />
+                              </Link>
+                            );
+                          })}
+                        </div>
+                      </AccordionContent>
+                    </AccordionItem>
+
+                    <AccordionItem value="rooms" data-testid="sidebar-section-rooms">
+                      <AccordionTrigger
+                        actions={
+                          <>
+                            <Button
+                              asChild
+                              size="icon"
+                              variant="ghost"
+                              className="h-7 w-7"
+                              data-testid="sidebar-browse-rooms-button"
+                            >
+                              <Link href="/rooms" aria-label="Browse rooms">
+                                <Search className="h-4 w-4" />
+                              </Link>
+                            </Button>
+                            <Button
+                              type="button"
+                              size="icon"
+                              variant="ghost"
+                              className="h-7 w-7"
+                              aria-label="Create room"
+                              data-testid="sidebar-create-room-button"
+                              onClick={() => setCreateRoomOpen(true)}
+                            >
+                              <SquarePen className="h-4 w-4" />
+                            </Button>
+                          </>
+                        }
+                      >
+                        Rooms
+                      </AccordionTrigger>
+                      <AccordionContent className="space-y-2">
+                        <Dialog open={createRoomOpen} onOpenChange={setCreateRoomOpen}>
+                          <DialogContent>
+                            <DialogHeader>
+                              <DialogTitle>Create a public room</DialogTitle>
+                            </DialogHeader>
+                            <div className="space-y-3">
+                              <div className="space-y-2">
+                                <label htmlFor="sidebar-room-name" className="text-sm font-medium">
+                                  Name
+                                </label>
+                                <Input
+                                  id="sidebar-room-name"
+                                  value={createRoomName}
+                                  onChange={(event) => setCreateRoomName(event.target.value)}
+                                />
+                              </div>
+                              <div className="space-y-2">
+                                <label htmlFor="sidebar-room-description" className="text-sm font-medium">
+                                  Description (optional)
+                                </label>
+                                <Input
+                                  id="sidebar-room-description"
+                                  value={createRoomDescription}
+                                  onChange={(event) =>
+                                    setCreateRoomDescription(event.target.value)
+                                  }
+                                />
+                              </div>
+                              <Button type="button" onClick={() => void createRoomFromSidebar()}>
+                                Create
+                              </Button>
+                            </div>
+                          </DialogContent>
+                        </Dialog>
+                        <div className="space-y-1">
+                          {(myRooms.data ?? []).map((r) => {
+                            const href = `/rooms/${r.room.id}`;
+                            const active = pathname === href;
+                            const unread = unreadMap[r.room.conversationId] ?? 0;
+                            return (
+                              <Link
+                                key={r.room.id}
                                 href={href}
                                 className={cn(
                                   "flex h-8 items-center gap-2 rounded-md px-2 text-sm hover:bg-accent",
@@ -402,7 +593,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                                 )}
                               >
                                 <span className="min-w-0 flex-1 truncate">
-                                  {c.peer.username}
+                                  {r.room.name}
                                 </span>
                                 <UnreadBadge count={unread} />
                               </Link>

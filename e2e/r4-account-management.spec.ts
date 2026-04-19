@@ -116,7 +116,7 @@ test.describe("R4 account management", () => {
       });
     await connected(ownerPage);
     await connected(memberPage);
-    await ownerPage.getByRole("button", { name: "+ New DM" }).click();
+    await ownerPage.getByRole("button", { name: "New DM" }).click();
     await ownerPage
       .getByRole("dialog", { name: "Start a DM" })
       .getByRole("button", { name: users.b.username, exact: true })

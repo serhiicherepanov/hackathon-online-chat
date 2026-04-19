@@ -15,7 +15,9 @@ export async function GET() {
       conversation: {
         include: {
           dmParticipants: {
-            include: { user: { select: { id: true, username: true } } },
+            include: {
+              user: { select: { id: true, username: true, avatarUrl: true } },
+            },
           },
         },
       },
@@ -55,7 +57,7 @@ export async function GET() {
       .find((u) => u.id !== gate.user.id);
     return {
       conversationId: row.conversationId,
-      peer: peer ?? { id: "", username: "unknown" },
+      peer: peer ?? { id: "", username: "unknown", avatarUrl: null },
       frozen: peer ? frozenPeerIds.has(peer.id) : false,
     };
   });
