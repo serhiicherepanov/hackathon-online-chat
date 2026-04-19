@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { createWriteStream } from "node:fs";
-import { mkdir, open, stat } from "node:fs/promises";
+import { mkdir, open, stat, unlink } from "node:fs/promises";
 import path from "node:path";
 import { Readable, Transform } from "node:stream";
 import { pipeline } from "node:stream/promises";
@@ -115,4 +115,21 @@ export async function writeUpload(
   const st = await stat(absPath);
   const relativePath = `${yyyy}/${mm}/${fileName}`;
   return { storedPath: relativePath, relativePath, size: st.size };
+}
+
+export async function deleteStoredUpload(storedPath: string): Promise<void> {
+  const abs = resolveStoredPath(storedPath);
+  try {
+    await unlink(abs);
+  } catch (err) {
+    if (
+      typeof err === "object" &&
+      err &&
+      "code" in err &&
+      (err as NodeJS.ErrnoException).code === "ENOENT"
+    ) {
+      return;
+    }
+    throw err;
+  }
 }

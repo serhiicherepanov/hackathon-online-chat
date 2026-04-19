@@ -21,7 +21,14 @@ enum RoomVisibility {
 
 enum RoomMemberRole {
   owner
+  admin
   member
+}
+
+enum RoomInviteStatus {
+  pending
+  accepted
+  declined
 }
 
 enum FriendshipStatus {
@@ -44,6 +51,10 @@ model User {
 
   sessions       Session[]
   roomMembers    RoomMember[]
+  roomInvites    RoomInvite[]   @relation("RoomInvitee")
+  roomInvitesSent RoomInvite[]  @relation("RoomInviter")
+  roomBans       RoomBan[]
+  roomBansIssued RoomBan[]      @relation("RoomBannedBy")
   dmParticipants DmParticipant[]
   messages       Message[]
   messageReads   MessageRead[]
@@ -90,6 +101,8 @@ model Room {
   visibility     RoomVisibility @default(public)
 
   members RoomMember[]
+  invites RoomInvite[]
+  bans    RoomBan[]
 }
 
 model RoomMember {
@@ -102,7 +115,40 @@ model RoomMember {
   joinedAt DateTime       @default(now())
 
   @@unique([roomId, userId])
+  @@index([roomId, role])
   @@index([userId])
+}
+
+model RoomInvite {
+  id          String           @id @default(cuid())
+  roomId       String
+  room         Room             @relation(fields: [roomId], references: [id], onDelete: Cascade)
+  inviteeId    String
+  invitee      User             @relation("RoomInvitee", fields: [inviteeId], references: [id], onDelete: Cascade)
+  inviterId    String
+  inviter      User             @relation("RoomInviter", fields: [inviterId], references: [id], onDelete: Cascade)
+  status       RoomInviteStatus @default(pending)
+  createdAt    DateTime         @default(now())
+  respondedAt  DateTime?
+
+  @@index([roomId, status])
+  @@index([inviteeId, status, createdAt])
+  @@index([inviterId, createdAt])
+}
+
+model RoomBan {
+  id          String   @id @default(cuid())
+  roomId       String
+  room         Room     @relation(fields: [roomId], references: [id], onDelete: Cascade)
+  userId       String
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  bannedById   String
+  bannedBy     User     @relation("RoomBannedBy", fields: [bannedById], references: [id], onDelete: Cascade)
+  createdAt    DateTime @default(now())
+
+  @@unique([roomId, userId])
+  @@index([userId, createdAt])
+  @@index([bannedById, createdAt])
 }
 
 model DmParticipant {

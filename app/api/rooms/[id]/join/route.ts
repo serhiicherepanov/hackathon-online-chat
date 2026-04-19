@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import { requireSessionUser } from "@/lib/auth/session";
 import { prisma } from "@/lib/prisma";
+import { hasActiveRoomBan } from "@/lib/rooms/auth";
+import { serializeRoomSummary } from "@/lib/rooms/serialize";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -25,6 +27,11 @@ export async function POST(_req: Request, ctx: Ctx) {
     return NextResponse.json({ error: "private_room" }, { status: 403 });
   }
 
+  const banned = await hasActiveRoomBan(room.id, gate.user.id);
+  if (banned) {
+    return NextResponse.json({ error: "banned" }, { status: 403 });
+  }
+
   await prisma.roomMember.upsert({
     where: {
       roomId_userId: { roomId: room.id, userId: gate.user.id },
@@ -37,11 +44,12 @@ export async function POST(_req: Request, ctx: Ctx) {
     update: {},
   });
 
+  const memberCount = await prisma.roomMember.count({
+    where: { roomId: room.id },
+  });
+
   return NextResponse.json({
-    room: {
-      id: room.id,
-      conversationId: room.conversationId,
-      name: room.name,
-    },
+    room: serializeRoomSummary(room),
+    memberCount,
   });
 }

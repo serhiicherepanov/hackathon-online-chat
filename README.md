@@ -5,11 +5,10 @@ personal messages, contacts/friends, file and image sharing, basic moderation,
 and persistent message history. Designed for ~300 concurrent users, ~1000
 participants per room, and multi-year message retention.
 
-> **Status:** R2 in progress — R0 MVP + R1 rich messaging shipped; R2 adds
-> the social graph (friend requests / accept / decline / remove, block /
-> unblock with frozen DMs), online/afk/offline presence driven by a client
-> activity heartbeat, and throttled typing indicators on rooms and DMs.
-> R3–R4 not started; R5 is stretch. See the full [Roadmap](ROADMAP.md). `docker compose up`
+> **Status:** R3 shipped — R0 MVP, R1 rich messaging, R2 social/presence,
+> and R3 moderation/admin are done. The app now includes room roles,
+> private-room invites, live revocation, moderator message deletion, and the
+> room-actions / Manage Room UI. R4 is next; R5 is stretch. See the full [Roadmap](ROADMAP.md). `docker compose up`
 > from repo root applies migrations on boot.
 >
 > **AI-only build:** This project is authored entirely by AI coding agents
@@ -42,8 +41,8 @@ participants per room, and multi-year message retention.
   messages.
 - Local-filesystem attachments (max 20 MB per file, 3 MB per image) with
   membership-gated downloads.
-- Moderation: owner/admin roles, room bans, admin-deleted messages,
-  invitations.
+- Moderation: role-aware room actions, Manage Room dialog, owner/admin roles,
+  room bans, moderator-deleted messages, and private-room invitations.
 - Multi-tab aware presence (online / AFK / offline) and persistent login across
   browser restarts.
 
@@ -137,8 +136,8 @@ product. See [`docs/plan/index.md`](docs/plan/index.md).
 |---------|-------|--------|
 | [R0 — Demo-able MVP](docs/plan/r0-mvp.md) | Compose, auth, rooms (public + private flag), DMs, realtime text, unread badges, online/offline presence | **done** |
 | [R1 — Rich Messaging](docs/plan/r1-rich-messaging.md) | Attachments (file + image), reply, edit, delete, multiline, emoji | **done** |
-| [R2 — Social & Presence](docs/plan/r2-social-presence.md) | Friends, blocks with frozen DMs, AFK/multi-tab, typing | in progress |
-| [R3 — Moderation & Admin](docs/plan/r3-moderation.md) | Roles, bans, invitations, Manage Room modal, live access revocation | not started |
+| [R2 — Social & Presence](docs/plan/r2-social-presence.md) | Friends, blocks with frozen DMs, AFK/multi-tab, typing | **done** |
+| [R3 — Moderation & Admin](docs/plan/r3-moderation.md) | Roles, bans, invitations, Manage Room modal, live access revocation | **done** |
 | [R4 — Polish & Submission](docs/plan/r4-polish-scale.md) | Password reset, delete account, active sessions UI, 10k-message perf, 300-client load test, README polish, seed | not started |
 | [R5 — Advanced (stretch)](docs/plan/r5-advanced.md) | Multi-node Centrifugo + Redis, bot/integration API, realtime admin dashboards | stretch |
 

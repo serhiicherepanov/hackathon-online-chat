@@ -3,10 +3,12 @@
 import type { Centrifuge, Subscription } from "centrifuge";
 import { useQueryClient } from "@tanstack/react-query";
 import { createContext, useContext, useEffect, useMemo, useState } from "react";
+import { usePathname, useRouter } from "next/navigation";
 import { createCentrifuge } from "@/lib/centrifuge";
 import { useActiveConversationStore } from "@/lib/stores/active-conversation-store";
 import { useConnectionStore } from "@/lib/stores/connection-store";
 import { usePresenceStore } from "@/lib/stores/presence-store";
+import { useToastStore, type AppToast } from "@/lib/stores/toast-store";
 import { useTypingStore } from "@/lib/stores/typing-store";
 import { useUnreadStore } from "@/lib/stores/unread-store";
 import type {
@@ -32,10 +34,50 @@ export function useCentrifugeContext(): CentrifugeContextValue {
 function handleSocialEvent(
   data: SocialEventPayload,
   queryClient: ReturnType<typeof useQueryClient>,
+  router: ReturnType<typeof useRouter>,
+  pathname: string,
+  pushToast: (toast: AppToast) => void,
 ) {
   void queryClient.invalidateQueries({ queryKey: ["me", "friends"] });
   if (data.type === "dm.frozen" || data.type === "block.created" || data.type === "block.removed") {
     void queryClient.invalidateQueries({ queryKey: ["me", "dm-contacts"] });
+  }
+  if (data.type === "room.invited") {
+    void queryClient.invalidateQueries({ queryKey: ["me", "invites"] });
+    return;
+  }
+  if (data.type === "room.access.revoked") {
+    pushToast({
+      id: `room-access-revoked-${data.room.id}`,
+      title: "Room access removed",
+      description:
+        data.reason === "banned"
+          ? `You were banned from ${data.room.name}.`
+          : `You were removed from ${data.room.name}.`,
+    });
+    void Promise.all([
+      queryClient.invalidateQueries({ queryKey: ["me", "rooms"] }),
+      queryClient.invalidateQueries({ queryKey: ["rooms", data.room.id, "meta"] }),
+      queryClient.invalidateQueries({ queryKey: ["rooms", data.room.id, "members"] }),
+    ]);
+    if (pathname === `/rooms/${data.room.id}`) {
+      router.replace("/rooms");
+    }
+    return;
+  }
+  if (data.type === "room.deleted") {
+    pushToast({
+      id: `room-deleted-${data.roomId}`,
+      title: "Room deleted",
+      description: `${data.roomName} is no longer available.`,
+    });
+    void Promise.all([
+      queryClient.invalidateQueries({ queryKey: ["me", "rooms"] }),
+      queryClient.invalidateQueries({ queryKey: ["me", "invites"] }),
+    ]);
+    if (pathname === `/rooms/${data.roomId}`) {
+      router.replace("/rooms");
+    }
   }
 }
 
@@ -52,10 +94,13 @@ export function CentrifugeProvider({
   children: React.ReactNode;
 }) {
   const queryClient = useQueryClient();
+  const router = useRouter();
+  const pathname = usePathname();
   const [client, setClient] = useState<Centrifuge | null>(null);
   const [status, setStatus] =
     useState<CentrifugeContextValue["status"]>("disconnected");
   const setConnectionState = useConnectionStore((s) => s.setState);
+  const pushToast = useToastStore((s) => s.push);
 
   useEffect(() => {
     const wsUrl = process.env.NEXT_PUBLIC_CENTRIFUGO_WS_URL;
@@ -136,9 +181,12 @@ export function CentrifugeProvider({
           data.type === "friend.removed" ||
           data.type === "block.created" ||
           data.type === "block.removed" ||
-          data.type === "dm.frozen"
+          data.type === "dm.frozen" ||
+          data.type === "room.invited" ||
+          data.type === "room.access.revoked" ||
+          data.type === "room.deleted"
         ) {
-          handleSocialEvent(data, queryClient);
+          handleSocialEvent(data, queryClient, router, pathname, pushToast);
           return;
         }
       });
@@ -177,7 +225,7 @@ export function CentrifugeProvider({
       setStatus("disconnected");
       setConnectionState("disconnected");
     };
-  }, [queryClient, setConnectionState, userId]);
+  }, [pathname, pushToast, queryClient, router, setConnectionState, userId]);
 
   const value = useMemo(() => ({ client, status }), [client, status]);
 

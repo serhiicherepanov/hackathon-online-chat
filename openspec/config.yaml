@@ -1,20 +1,42 @@
 schema: spec-driven
+context: |
+  Product: classic web chat with public/private rooms, direct messages, contacts, files/images, moderation, and presence.
+  Authoritative docs:
+  - Product requirements: REQUIREMENTS.md -> docs/index.md
+  - Release plan: docs/plan/index.md
+  - OpenSpec project notes: openspec/project.md
+  Runtime: everything runs through Docker Compose from the repo root (`docker compose up`).
+  Stack: Next.js 15 App Router, TypeScript, PostgreSQL, Prisma, Centrifugo, centrifuge-js, TanStack Query, Zustand, React Virtuoso, shadcn/ui, Tailwind CSS.
+  Architecture:
+  - PostgreSQL is authoritative for persisted state and message history.
+  - Next.js route handlers/server logic own business rules, authorization, and persistence workflows.
+  - Centrifugo is only for live delivery/presence/typing; CRUD and history stay on REST or Server Actions.
+  - TanStack Query owns fetched/cacheable server data; Zustand owns local high-churn UI coordination state.
+  - Large histories must use pagination/infinite scroll plus virtualization.
+  Key constraints:
+  - Target scale is about 300 concurrent users, with rooms up to 1000 participants.
+  - Message delivery should reach recipients within 3 seconds; presence updates within 2 seconds.
+  - Rooms must stay usable with 10,000+ messages and long-lived histories approaching 100,000 messages.
+  - Uploads use the local filesystem; max 20 MB per file, max 3 MB per image.
+  - Usernames are unique and immutable; room names are unique.
+  - Direct messages are exactly two participants, require friendship, and become read-only after a ban.
+  - Losing room access revokes access to its messages/files; deleting a room permanently removes its messages and attachments.
 
-# Project context (optional)
-# This is shown to AI when creating artifacts.
-# Add your tech stack, conventions, style guides, domain knowledge, etc.
-# Example:
-#   context: |
-#     Tech stack: TypeScript, React, Node.js
-#     We use conventional commits
-#     Domain: e-commerce platform
-
-# Per-artifact rules (optional)
-# Add custom rules for specific artifacts.
-# Example:
-#   rules:
-#     proposal:
-#       - Keep proposals under 500 words
-#       - Always include a "Non-goals" section
-#     tasks:
-#       - Break tasks into chunks of max 2 hours
+rules:
+  proposal:
+    - Ground every change in the current capabilities under `openspec/specs/*` and say which capabilities are added or modified.
+    - Call out user-visible behavior changes, API/auth changes, realtime contract changes, and any README or release-doc impact.
+    - Keep scope aligned with `docs/plan/index.md` and prefer small, testable slices over broad rewrites.
+  design:
+    - Preserve the repo architecture: Next.js + Prisma for business rules/persistence, Centrifugo for live fan-out, REST/Server Actions for CRUD and history.
+    - Note TanStack Query vs Zustand ownership whenever a design touches cached server data or high-churn local state.
+    - For message history or other long lists, require pagination/infinite scroll and virtualization.
+  tasks:
+    - Break work into concrete slices across schema/data, server/API, realtime, client/UI, and verification when those areas are affected.
+    - Any user-visible behavior, API contract, validation, or authorization change must update existing unit/e2e coverage in the same change.
+    - Do not mark e2e-related work complete unless the relevant stack-backed e2e coverage was added or updated and run.
+    - If setup, runtime, environment variables, or reviewer-visible workflows change, update `README.md` in the same change.
+  spec:
+    - Keep specs consistent with `REQUIREMENTS.md`, `docs/index.md`, and `docs/plan/index.md`.
+    - Use precise requirement language for permissions, presence semantics, file access, and deletion behavior.
+    - Reflect repo invariants already enforced by the product requirements, including friendship-gated DMs, ban-aware access checks, and Compose-based runtime assumptions.

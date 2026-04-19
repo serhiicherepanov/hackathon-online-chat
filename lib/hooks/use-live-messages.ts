@@ -3,13 +3,19 @@ import type { Centrifuge, Subscription } from "centrifuge";
 import { useEffect } from "react";
 import type { MessageDto } from "@/lib/types/chat";
 import {
+  memberBannedSchema,
   messageDeletedSchema,
   messageUpdatedSchema,
+  roleChangedSchema,
 } from "@/lib/realtime/payloads";
 import type {
+  MemberBannedPayload,
   MessageCreatedPayload,
   MessageDeletedPayload,
   MessageUpdatedPayload,
+  RoleChangedPayload,
+  RoomDeletedPayload,
+  RoomUpdatedPayload,
 } from "@/lib/realtime/payloads";
 
 type Pages = { pages: { messages: MessageDto[]; nextCursor: string | null }[]; pageParams: unknown[] };
@@ -46,6 +52,10 @@ export function useLiveMessages(
         | MessageCreatedPayload
         | MessageUpdatedPayload
         | MessageDeletedPayload
+        | RoleChangedPayload
+        | MemberBannedPayload
+        | RoomUpdatedPayload
+        | RoomDeletedPayload
         | { type?: string };
       if (!data || typeof data !== "object") return;
 
@@ -118,6 +128,46 @@ export function useLiveMessages(
           };
         });
         return;
+      }
+
+      if (data.type === "role.changed") {
+        const parsed = roleChangedSchema.safeParse(data);
+        if (!parsed.success) return;
+        void Promise.all([
+          queryClient.invalidateQueries({
+            queryKey: ["rooms", parsed.data.roomId, "members"],
+          }),
+          queryClient.invalidateQueries({ queryKey: ["me", "rooms"] }),
+        ]);
+        return;
+      }
+
+      if (data.type === "member.banned") {
+        const parsed = memberBannedSchema.safeParse(data);
+        if (!parsed.success) return;
+        void Promise.all([
+          queryClient.invalidateQueries({
+            queryKey: ["rooms", parsed.data.roomId, "members"],
+          }),
+          queryClient.invalidateQueries({ queryKey: ["me", "rooms"] }),
+        ]);
+        return;
+      }
+
+      if (data.type === "room.updated") {
+        const payload = data as RoomUpdatedPayload;
+        void Promise.all([
+          queryClient.invalidateQueries({ queryKey: ["rooms"] }),
+          queryClient.invalidateQueries({
+            queryKey: ["rooms", payload.room.id, "meta"],
+          }),
+          queryClient.invalidateQueries({ queryKey: ["me", "rooms"] }),
+        ]);
+        return;
+      }
+
+      if (data.type === "room.deleted") {
+        void queryClient.invalidateQueries({ queryKey: ["me", "rooms"] });
       }
     };
 

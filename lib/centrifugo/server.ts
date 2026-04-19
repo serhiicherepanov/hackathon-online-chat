@@ -42,6 +42,20 @@ export async function centrifugoBroadcast(
   }
 }
 
+export async function centrifugoUnsubscribe(
+  user: string,
+  channel: string,
+): Promise<void> {
+  const res = await centrifugoPost("/api/unsubscribe", { user, channel });
+  if (!res.ok) {
+    const text = await res.text();
+    logger.warn(
+      { user, channel, status: res.status, text },
+      "centrifugo unsubscribe failed",
+    );
+  }
+}
+
 type PresenceResult = {
   result?: {
     presence?: Record<

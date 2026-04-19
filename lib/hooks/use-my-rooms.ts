@@ -2,7 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 
 export type MyRoomRow = {
   membershipId: string;
-  role: "owner" | "member";
+  role: "owner" | "admin" | "member";
   joinedAt: string;
   room: {
     id: string;

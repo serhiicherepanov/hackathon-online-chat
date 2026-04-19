@@ -4,6 +4,10 @@ import { requireSessionUser } from "@/lib/auth/session";
 import { messageInclude, serializeMessage } from "@/lib/messages/serialize";
 import { prisma } from "@/lib/prisma";
 import {
+  getRoomMembershipByConversationId,
+  isRoomAdmin,
+} from "@/lib/rooms/auth";
+import {
   publishMessageDeleted,
   publishMessageUpdated,
 } from "@/lib/realtime/emit";
@@ -96,11 +100,22 @@ export async function DELETE(_req: Request, ctx: Ctx) {
   if (!existing) {
     return NextResponse.json({ error: "not_found" }, { status: 404 });
   }
-  if (existing.authorId !== gate.user.id) {
-    return NextResponse.json({ error: "forbidden" }, { status: 403 });
-  }
   if (existing.deletedAt) {
     return new Response(null, { status: 204 });
+  }
+
+  if (existing.authorId !== gate.user.id) {
+    if (existing.conversation.type !== "room") {
+      return NextResponse.json({ error: "forbidden" }, { status: 403 });
+    }
+
+    const membership = await getRoomMembershipByConversationId(
+      existing.conversation.id,
+      gate.user.id,
+    );
+    if (!membership || !isRoomAdmin(membership.role)) {
+      return NextResponse.json({ error: "forbidden" }, { status: 403 });
+    }
   }
 
   const deletedAt = new Date();

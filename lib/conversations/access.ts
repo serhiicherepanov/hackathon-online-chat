@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/prisma";
+import { getRoomMembershipByConversationId } from "@/lib/rooms/auth";
 
 export async function assertMember(
   conversationId: string,
@@ -11,9 +12,7 @@ export async function assertMember(
   if (!conv) return { ok: false, status: 404 };
 
   if (conv.type === "room") {
-    const member = await prisma.roomMember.findFirst({
-      where: { userId, room: { conversationId } },
-    });
+    const member = await getRoomMembershipByConversationId(conversationId, userId);
     if (!member) return { ok: false, status: 403 };
     return { ok: true };
   }
