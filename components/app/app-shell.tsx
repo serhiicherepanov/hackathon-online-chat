@@ -14,7 +14,10 @@ import {
   AccordionTrigger,
 } from "@/components/ui/accordion";
 import { Badge } from "@/components/ui/badge";
-import { RoomAvatar, UserAvatar } from "@/components/chat/user-avatar";
+import {
+  SidebarDmRow,
+  SidebarRoomRow,
+} from "@/components/app/sidebar-conversation-row";
 import { UnreadBadge } from "@/components/app/unread-badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -443,36 +446,18 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
                         <div className="space-y-1">
                           {(dmContacts.data ?? []).map((c) => {
-                            const href = `/dm/${c.conversationId}`;
-                            const active = pathname === href;
+                            const active = pathname === `/dm/${c.conversationId}`;
                             const unread = unreadMap[c.conversationId] ?? 0;
                             const status = presenceMap[c.peer.id] ?? "offline";
                             return (
-                              <Link
+                              <SidebarDmRow
                                 key={c.conversationId}
-                                href={href}
-                                data-testid={`sidebar-dm-row-${c.peer.id}`}
-                                data-presence={status}
-                                title={PRESENCE_LABEL[status]}
-                                className={cn(
-                                  "flex h-9 items-center gap-2 rounded-md px-2 text-sm hover:bg-accent",
-                                  active && "bg-accent",
-                                )}
-                              >
-                                <UserAvatar
-                                  userId={c.peer.id}
-                                  username={c.peer.username}
-                                  avatarUrl={c.peer.avatarUrl}
-                                  size={24}
-                                  testId={`sidebar-dm-avatar-${c.peer.id}`}
-                                  presence={status}
-                                  presenceTestId={`sidebar-dm-presence-${c.peer.id}`}
-                                />
-                                <span className="min-w-0 flex-1 truncate">
-                                  {c.peer.username}
-                                </span>
-                                <UnreadBadge count={unread} />
-                              </Link>
+                                conversationId={c.conversationId}
+                                peer={c.peer}
+                                unread={unread}
+                                active={active}
+                                presence={status}
+                              />
                             );
                           })}
                         </div>
@@ -547,30 +532,15 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                         </Dialog>
                         <div className="space-y-1">
                           {(myRooms.data ?? []).map((r) => {
-                            const href = `/rooms/${r.room.id}`;
-                            const active = pathname === href;
+                            const active = pathname === `/rooms/${r.room.id}`;
                             const unread = unreadMap[r.room.conversationId] ?? 0;
                             return (
-                              <Link
+                              <SidebarRoomRow
                                 key={r.room.id}
-                                href={href}
-                                data-testid={`sidebar-room-row-${r.room.id}`}
-                                className={cn(
-                                  "flex h-9 items-center gap-2 rounded-md px-2 text-sm hover:bg-accent",
-                                  active && "bg-accent",
-                                )}
-                              >
-                                <RoomAvatar
-                                  roomId={r.room.id}
-                                  roomName={r.room.name}
-                                  size={24}
-                                  testId={`sidebar-room-avatar-${r.room.id}`}
-                                />
-                                <span className="min-w-0 flex-1 truncate">
-                                  {r.room.name}
-                                </span>
-                                <UnreadBadge count={unread} />
-                              </Link>
+                                room={r.room}
+                                unread={unread}
+                                active={active}
+                              />
                             );
                           })}
                         </div>
