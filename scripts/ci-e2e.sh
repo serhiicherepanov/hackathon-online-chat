@@ -159,6 +159,10 @@ mkdir -p "$ARTIFACTS_DIR"
 
 cleanup() {
   ec=$?
+  echo "==> copying Playwright output to ${ARTIFACTS_DIR}"
+  [ -d playwright-report ] && cp -r playwright-report "${ARTIFACTS_DIR}/playwright-report" || true
+  [ -d test-results ]      && cp -r test-results      "${ARTIFACTS_DIR}/test-results"      || true
+
   echo "==> dumping compose logs to ${ARTIFACTS_DIR}/compose-logs"
   mkdir -p "${ARTIFACTS_DIR}/compose-logs"
   for svc in db centrifugo app traefik; do
@@ -206,9 +210,5 @@ fi
 
 echo "==> playwright test ${PW_ARGS[*]:-}"
 pnpm exec playwright test "${PW_ARGS[@]}"
-
-echo "==> copying Playwright output to ${ARTIFACTS_DIR}"
-[ -d playwright-report ] && cp -r playwright-report "${ARTIFACTS_DIR}/playwright-report" || true
-[ -d test-results ]      && cp -r test-results      "${ARTIFACTS_DIR}/test-results"      || true
 
 echo "e2e pipeline ok"
