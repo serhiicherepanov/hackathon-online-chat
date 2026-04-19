@@ -9,12 +9,13 @@ function sleep(ms: number) {
 }
 
 function readDeliveryArtifacts() {
+  const cwd = process.cwd();
   return execFileSync(
     "bash",
     [
       "-lc",
       [
-        "cd /home/scherepanov/dev/hackathon-online-chat &&",
+        `cd ${JSON.stringify(cwd)} &&`,
         "docker compose -p hackathon-online-chat -f docker-compose.prod.yml --env-file .env.e2e exec -T app",
         "sh -lc",
         `'if [ -f "${RESET_DELIVERY_FILE}" ]; then cat "${RESET_DELIVERY_FILE}"; fi'`,
