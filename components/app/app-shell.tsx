@@ -203,7 +203,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
               </div>
             ))}
           </div>
-          <header className="flex items-center justify-between border-b border-border px-4 py-3">
+          <header className="flex items-center justify-between border-b border-border bg-card/80 backdrop-blur-sm px-4 py-3 shadow-sm">
             <div className="flex items-center gap-3">
               <Link href="/rooms" className="font-semibold">
                 {title}
@@ -230,7 +230,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           </header>
 
           <div className="flex min-h-0 flex-1">
-            <aside className="hidden w-80 shrink-0 border-r border-border md:flex md:flex-col">
+            <aside className="hidden w-80 shrink-0 border-r border-border sidebar-bg md:flex md:flex-col">
               <ScrollArea className="h-[calc(100vh-57px)]">
                 <div className="space-y-3 p-3">
                   <Button asChild className="w-full" size="sm" variant="outline">

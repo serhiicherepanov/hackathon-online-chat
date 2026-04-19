@@ -101,6 +101,7 @@ export function MessageItem({
 
   const isAuthor = me?.id === message.authorId;
   const deleted = message.deleted;
+  const bubbleClass = isAuthor ? "chat-bubble-sent" : "chat-bubble-received";
 
   const saveEdit = useCallback(async () => {
     setEditError(null);
@@ -127,7 +128,7 @@ export function MessageItem({
 
   return (
     <div
-      className="px-4 py-2 transition-colors hover:bg-accent/40"
+      className={`mx-3 my-2 rounded-xl px-4 py-3 shadow-sm transition-all hover:shadow-md ${bubbleClass}`}
       data-testid="message-item"
       data-message-id={message.id}
     >

@@ -243,10 +243,10 @@ export function MessageComposer({
   }
 
   return (
-    <div className="border-t border-border p-3" data-testid="composer-root">
+    <div className="border-t border-border bg-card/50 backdrop-blur-sm p-4" data-testid="composer-root">
       {convState.replyTarget ? (
         <div
-          className="mb-2 flex items-center justify-between rounded border bg-muted px-3 py-2 text-xs"
+          className="mb-3 flex items-center justify-between rounded-xl border border-primary/20 bg-primary/10 px-4 py-2.5 text-xs"
           data-testid="reply-banner"
         >
           <div className="truncate">
@@ -345,7 +345,7 @@ export function MessageComposer({
           placeholder="Message"
           minRows={1}
           maxRows={8}
-          className="flex min-h-[40px] w-full resize-none rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+          className="flex min-h-[44px] w-full resize-none rounded-xl border border-input bg-background/60 px-4 py-3 text-sm shadow-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:border-primary/50 transition-all"
           data-testid="composer-input"
         />
         <Button type="submit" disabled={sending} data-testid="composer-send-btn">

@@ -51,7 +51,7 @@ export function TypingIndicator({
     <div
       data-testid="typing-indicator"
       data-active="true"
-      className="h-5 px-4 text-xs text-muted-foreground"
+      className="h-6 px-5 text-xs text-muted-foreground italic animate-pulse"
       aria-live="polite"
     >
       {formatNames(live.map((e) => e.username))}
