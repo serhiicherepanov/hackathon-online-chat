@@ -131,7 +131,7 @@ export function ConversationView({
       </div>
 
       {aside ? (
-        <aside className="hidden w-72 shrink-0 flex-col gap-3 p-4 sidebar-bg md:flex">
+        <aside className="hidden h-full min-h-0 w-72 shrink-0 flex-col gap-3 p-4 sidebar-bg md:flex">
           {aside}
         </aside>
       ) : null}

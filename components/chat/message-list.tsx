@@ -139,12 +139,16 @@ export function MessageList({
         </div>
       ) : null}
       <div className="h-full min-h-0" data-testid="message-scroller">
+        {items.length > 0 ? (
         <Virtuoso
+          key={conversationId}
           className="h-full min-h-0"
           ref={virtuosoRef}
           data={items}
-        style={items.length === 0 ? { display: "none" } : undefined}
-        initialTopMostItemIndex={Math.max(0, items.length - 1)}
+        initialTopMostItemIndex={{
+          index: "LAST",
+          align: "end",
+        }}
         followOutput={atBottom ? "auto" : false}
         atBottomStateChange={(bottom) => {
           atBottomRef.current = bottom;
@@ -155,27 +159,30 @@ export function MessageList({
           if (hasNextPage && !isFetchingNextPage) fetchOlder();
         }}
         itemContent={(_index, m) => (
-          <ErrorBoundary
-            onError={(err) =>
-              reportError(err, { area: "message-item", id: m.id })
-            }
-            fallbackRender={({ resetErrorBoundary }) => (
-              <div className="px-4 py-2 text-xs text-muted-foreground">
-                Could not render message.{" "}
-                <button
-                  type="button"
-                  className="underline"
-                  onClick={resetErrorBoundary}
-                >
-                  Retry
-                </button>
-              </div>
-            )}
-          >
-            <MessageItem message={m} onScrollToReply={scrollToReply} />
-          </ErrorBoundary>
+          <div className="px-3 py-2">
+            <ErrorBoundary
+              onError={(err) =>
+                reportError(err, { area: "message-item", id: m.id })
+              }
+              fallbackRender={({ resetErrorBoundary }) => (
+                <div className="px-4 py-2 text-xs text-muted-foreground">
+                  Could not render message.{" "}
+                  <button
+                    type="button"
+                    className="underline"
+                    onClick={resetErrorBoundary}
+                  >
+                    Retry
+                  </button>
+                </div>
+              )}
+            >
+              <MessageItem message={m} onScrollToReply={scrollToReply} />
+            </ErrorBoundary>
+          </div>
         )}
         />
+        ) : null}
       </div>
 
       {newWhileAwayConversationId === conversationId ? (

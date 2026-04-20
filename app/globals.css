@@ -72,6 +72,18 @@
   }
 }
 
+@layer base {
+  /* Prevent iOS Safari from zooming in when focusing inputs with <16px font.
+     Utility classes like `text-sm` would otherwise force 14px on mobile too. */
+  @media (max-width: 767.98px) {
+    input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="color"]):not([type="file"]),
+    textarea,
+    select {
+      font-size: 16px !important;
+    }
+  }
+}
+
 @layer utilities {
   .chat-bubble-sent {
     background-color: hsl(var(--chat-bubble-sent));

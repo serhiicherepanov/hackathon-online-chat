@@ -178,7 +178,7 @@ test.describe("R2 acceptance (social graph)", () => {
       await pageA.keyboard.press("Escape");
 
       await pageA.getByTestId("sidebar-create-room-button").click();
-      const createDialog = pageA.getByRole("dialog", { name: "Create a public room" });
+      const createDialog = pageA.getByRole("dialog", { name: "Create room" });
       await expect(createDialog).toBeVisible({ timeout: 15_000 });
       await createDialog.getByLabel("Name").fill(`sidebar-room-${Date.now()}`);
       await createDialog.getByRole("button", { name: "Create" }).click();

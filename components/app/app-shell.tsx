@@ -8,6 +8,7 @@ import { useEffect, useMemo, useState } from "react";
 import { AppToastViewport } from "@/components/app/app-toast-viewport";
 import { CopyUserIdButton } from "@/components/app/copy-user-id-button";
 import { SidebarDmRow, SidebarRoomRow } from "@/components/app/sidebar-conversation-row";
+import { CreateRoomDialog } from "@/components/chat/create-room-dialog";
 import { CentrifugeBoundary } from "@/components/errors/centrifuge-boundary";
 import { CentrifugeProvider } from "@/components/providers/centrifuge-provider";
 import {
@@ -399,8 +400,6 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const [dmOpen, setDmOpen] = useState(false);
   const [dmQuery, setDmQuery] = useState("");
   const [createRoomOpen, setCreateRoomOpen] = useState(false);
-  const [createRoomName, setCreateRoomName] = useState("");
-  const [createRoomDescription, setCreateRoomDescription] = useState("");
   const [inviteBusyId, setInviteBusyId] = useState<string | null>(null);
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
   const [mobileDetailsOpen, setMobileDetailsOpen] = useState(false);
@@ -479,30 +478,6 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     setDmQuery("");
     await dmContacts.refetch();
     router.push(`/dm/${json.conversationId}`);
-  }
-
-  async function createRoomFromSidebar() {
-    const name = createRoomName.trim();
-    if (!name) return;
-
-    const res = await fetch("/api/rooms", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        name,
-        description: createRoomDescription.trim() || undefined,
-        visibility: "public",
-      }),
-    });
-    if (!res.ok) return;
-
-    setCreateRoomOpen(false);
-    setCreateRoomName("");
-    setCreateRoomDescription("");
-    await Promise.all([
-      queryClient.invalidateQueries({ queryKey: ["rooms"] }),
-      queryClient.invalidateQueries({ queryKey: ["me", "rooms"] }),
-    ]);
   }
 
   async function signOut() {
@@ -584,7 +559,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   return (
     <CentrifugeBoundary>
       <CentrifugeProvider userId={user.id}>
-        <div className="flex min-h-screen flex-col" data-realtime-status={realtimeStatus}>
+        <div className="flex h-screen min-h-0 flex-col" data-realtime-status={realtimeStatus}>
           <AppToastViewport toasts={toasts} />
           <Dialog open={dmOpen} onOpenChange={setDmOpen}>
             <DialogContent>
@@ -632,38 +607,13 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             </DialogContent>
           </Dialog>
 
-          <Dialog open={createRoomOpen} onOpenChange={setCreateRoomOpen}>
-            <DialogContent>
-              <DialogHeader>
-                <DialogTitle>Create a public room</DialogTitle>
-              </DialogHeader>
-              <div className="space-y-3">
-                <div className="space-y-2">
-                  <label htmlFor="sidebar-room-name" className="text-sm font-medium">
-                    Name
-                  </label>
-                  <Input
-                    id="sidebar-room-name"
-                    value={createRoomName}
-                    onChange={(event) => setCreateRoomName(event.target.value)}
-                  />
-                </div>
-                <div className="space-y-2">
-                  <label htmlFor="sidebar-room-description" className="text-sm font-medium">
-                    Description (optional)
-                  </label>
-                  <Input
-                    id="sidebar-room-description"
-                    value={createRoomDescription}
-                    onChange={(event) => setCreateRoomDescription(event.target.value)}
-                  />
-                </div>
-                <Button type="button" onClick={() => void createRoomFromSidebar()}>
-                  Create
-                </Button>
-              </div>
-            </DialogContent>
-          </Dialog>
+          <CreateRoomDialog
+            open={createRoomOpen}
+            onOpenChange={setCreateRoomOpen}
+            onCreated={(roomId) => {
+              router.push(`/rooms/${roomId}`);
+            }}
+          />
 
           <header className="flex items-center justify-between gap-3 border-b border-border bg-card/80 px-3 py-3 shadow-sm backdrop-blur-sm md:px-4">
             <div className="flex min-w-0 items-center gap-3">
