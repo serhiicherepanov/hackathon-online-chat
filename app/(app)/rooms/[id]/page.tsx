@@ -61,9 +61,14 @@ export default function RoomConversationPage() {
         />
       }
       aside={
-        <div>
+        <div className="flex h-full min-h-0 flex-col">
           <p className="mb-2 text-sm font-medium">Members</p>
-          <MemberList members={members.data} />
+          <div
+            className="min-h-0 flex-1 overflow-y-auto pr-1"
+            data-testid="members-scroll"
+          >
+            <MemberList members={members.data} />
+          </div>
         </div>
       }
     />

@@ -201,7 +201,7 @@ export function MessageItem({
     <div
       ref={rootRef}
       className={cn(
-        "group/message mx-3 my-2 rounded-xl px-4 py-3 shadow-sm transition-all hover:shadow-md focus-within:shadow-md",
+        "group/message rounded-xl px-4 py-3 shadow-sm transition-all hover:shadow-md focus-within:shadow-md",
         bubbleClass,
         isFlashing && "message-flash",
       )}
