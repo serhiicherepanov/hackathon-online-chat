@@ -5,19 +5,11 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import { QueryBoundary } from "@/components/errors/query-boundary";
+import { CreateRoomDialog } from "@/components/chat/create-room-dialog";
 import { RoomVisibilityIcon } from "@/components/chat/room-visibility-icon";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import {
-  Dialog,
-  DialogContent,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { useMyRooms } from "@/lib/hooks/use-my-rooms";
 import { useRoomCatalog } from "@/lib/hooks/use-room-catalog";
 
@@ -36,36 +28,6 @@ export default function RoomsCatalogPage() {
   const myRooms = useMyRooms();
 
   const [open, setOpen] = useState(false);
-  const [name, setName] = useState("");
-  const [description, setDescription] = useState("");
-  const [visibility, setVisibility] = useState<"public" | "private">("public");
-
-  function resetCreateRoomForm() {
-    setName("");
-    setDescription("");
-    setVisibility("public");
-  }
-
-  async function createRoom() {
-    const res = await fetch("/api/rooms", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        name,
-        description: description || undefined,
-        visibility,
-      }),
-    });
-    if (!res.ok) return;
-    const json = (await res.json()) as { room?: { id?: string } };
-    const roomId = json.room?.id;
-    if (!roomId) return;
-    setOpen(false);
-    resetCreateRoomForm();
-    await queryClient.invalidateQueries({ queryKey: ["rooms"] });
-    await queryClient.invalidateQueries({ queryKey: ["me", "rooms"] });
-    router.push(`/rooms/${roomId}`);
-  }
 
   const rows = useMemo(() => catalog.data ?? [], [catalog.data]);
 
@@ -86,82 +48,16 @@ export default function RoomsCatalogPage() {
       <div className="border-b border-border bg-card/60 backdrop-blur-sm px-5 py-4 shadow-sm">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <h1 className="text-lg font-semibold">Rooms</h1>
-          <Dialog
+          <Button size="sm" onClick={() => setOpen(true)}>
+            Create room
+          </Button>
+          <CreateRoomDialog
             open={open}
-            onOpenChange={(nextOpen) => {
-              setOpen(nextOpen);
-              if (!nextOpen) {
-                resetCreateRoomForm();
-              }
+            onOpenChange={setOpen}
+            onCreated={(roomId) => {
+              router.push(`/rooms/${roomId}`);
             }}
-          >
-            <DialogTrigger asChild>
-              <Button size="sm">Create room</Button>
-            </DialogTrigger>
-            <DialogContent>
-              <DialogHeader>
-                <DialogTitle>Create room</DialogTitle>
-              </DialogHeader>
-              <div className="space-y-3">
-                <div className="space-y-2">
-                  <Label htmlFor="room-name">Name</Label>
-                  <Input
-                    id="room-name"
-                    value={name}
-                    onChange={(e) => setName(e.target.value)}
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="room-desc">Description (optional)</Label>
-                  <Input
-                    id="room-desc"
-                    value={description}
-                    onChange={(e) => setDescription(e.target.value)}
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label>Visibility</Label>
-                  <div className="grid gap-2 sm:grid-cols-2">
-                    <button
-                      type="button"
-                      className={`rounded-lg border p-3 text-left text-sm transition-colors ${
-                        visibility === "public"
-                          ? "border-primary bg-primary/5"
-                          : "border-border hover:border-primary/40"
-                      }`}
-                      onClick={() => setVisibility("public")}
-                      aria-pressed={visibility === "public"}
-                    >
-                      <div className="font-medium">Public</div>
-                      <p className="mt-1 text-muted-foreground">
-                        Listed in the room catalog so people can discover and join it.
-                      </p>
-                    </button>
-                    <button
-                      type="button"
-                      className={`rounded-lg border p-3 text-left text-sm transition-colors ${
-                        visibility === "private"
-                          ? "border-primary bg-primary/5"
-                          : "border-border hover:border-primary/40"
-                      }`}
-                      onClick={() => setVisibility("private")}
-                      aria-pressed={visibility === "private"}
-                    >
-                      <div className="font-medium">Private</div>
-                      <p className="mt-1 text-muted-foreground">
-                        Hidden from the catalog. People join after you invite them.
-                      </p>
-                    </button>
-                  </div>
-                </div>
-              </div>
-              <DialogFooter>
-                <Button type="button" onClick={() => void createRoom()}>
-                  Create
-                </Button>
-              </DialogFooter>
-            </DialogContent>
-          </Dialog>
+          />
         </div>
         <div className="mt-3 max-w-md">
           <Input
