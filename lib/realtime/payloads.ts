@@ -107,6 +107,17 @@ export type RoomDeletedPayload = {
   roomName: string;
 };
 
+export type NotificationHintPayload = {
+  type: "notification.hint";
+  category: "dm" | "mention" | "room";
+  conversationType: "dm" | "room";
+  conversationId: string;
+  roomName?: string;
+  senderUsername: string;
+  bodyPreview: string;
+  messageId: string;
+};
+
 export type SocialEventPayload =
   | FriendRequestEventPayload
   | FriendAcceptedEventPayload

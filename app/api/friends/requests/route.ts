@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { requireSessionUser } from "@/lib/auth/session";
 import { prisma } from "@/lib/prisma";
+import { dispatchFriendRequestPush } from "@/lib/notifications/hooks";
 import { publishUserScopedEvent } from "@/lib/realtime/emit";
 import {
   findFriendshipForPair,
@@ -78,6 +79,11 @@ export async function POST(req: Request) {
     target.id,
     serializeFriendRequestEvent(friendship.id, gate.user),
   ).catch(() => undefined);
+
+  void dispatchFriendRequestPush({
+    recipientId: target.id,
+    sender: { username: gate.user.username },
+  }).catch(() => undefined);
 
   return NextResponse.json(
     {

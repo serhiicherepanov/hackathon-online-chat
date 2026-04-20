@@ -43,6 +43,10 @@ import {
   SheetTrigger,
 } from "@/components/ui/sheet";
 import { useActivityHeartbeat } from "@/lib/hooks/use-activity-heartbeat";
+import {
+  isRunningStandalone,
+  useInstallPromptStore,
+} from "@/lib/pwa/install-prompt";
 import { useContacts } from "@/lib/hooks/use-contacts";
 import { useMyDmContacts } from "@/lib/hooks/use-dm-contacts";
 import { useMyRooms } from "@/lib/hooks/use-my-rooms";
@@ -245,6 +249,51 @@ function SidebarNavigationContent({
         </Accordion>
       </div>
     </ScrollArea>
+  );
+}
+
+function AccountDropdown({
+  onOpenSettings,
+  onSignOut,
+}: {
+  onOpenSettings: () => void;
+  onSignOut: () => Promise<void>;
+}) {
+  const deferredPrompt = useInstallPromptStore((s) => s.deferredPrompt);
+  const installed = useInstallPromptStore((s) => s.installed);
+  const clearPrompt = useInstallPromptStore((s) => s.setPrompt);
+  const canInstall = Boolean(deferredPrompt) && !installed && !isRunningStandalone();
+
+  async function onInstall() {
+    if (!deferredPrompt) return;
+    try {
+      await deferredPrompt.prompt();
+      await deferredPrompt.userChoice;
+    } finally {
+      clearPrompt(null);
+    }
+  }
+
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <Button size="sm" variant="outline" className="hidden md:inline-flex">
+          Account
+        </Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end">
+        {canInstall ? (
+          <DropdownMenuItem
+            onClick={() => void onInstall()}
+            data-testid="install-app-menu-item"
+          >
+            Install app
+          </DropdownMenuItem>
+        ) : null}
+        <DropdownMenuItem onClick={onOpenSettings}>Settings</DropdownMenuItem>
+        <DropdownMenuItem onClick={() => void onSignOut()}>Sign out</DropdownMenuItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
   );
 }
 
@@ -718,21 +767,10 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                 </SheetContent>
               </Sheet>
 
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button size="sm" variant="outline" className="hidden md:inline-flex">
-                    Account
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end">
-                  <DropdownMenuItem onClick={() => router.push("/settings")}>
-                    Settings
-                  </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => void signOut()}>
-                    Sign out
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
+              <AccountDropdown
+                onOpenSettings={() => router.push("/settings")}
+                onSignOut={signOut}
+              />
             </div>
           </header>
 

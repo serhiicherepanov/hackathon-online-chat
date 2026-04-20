@@ -63,6 +63,8 @@ services:
       context: .
       dockerfile: Dockerfile
       target: development
+      args:
+        NEXT_PUBLIC_VAPID_PUBLIC_KEY: "${NEXT_PUBLIC_VAPID_PUBLIC_KEY:-BGhYo-DnOzL7Oab7eLvYGkW7q7IoCqr7FgFZmyqyZEE9J0dTzXiS1VZbXwCyUvbwCO_b0a9TqAZhxoAOpA_eQ1A}"
     depends_on:
       db:
         condition: service_healthy
@@ -80,6 +82,9 @@ services:
       UPLOADS_DIR: "${UPLOADS_DIR:-/app/uploads}"
       PASSWORD_RESET_DELIVERY_FILE: "${PASSWORD_RESET_DELIVERY_FILE:-/app/uploads/password-reset-deliveries.log}"
       LOG_LEVEL: "${LOG_LEVEL:-info}"
+      NEXT_PUBLIC_VAPID_PUBLIC_KEY: "${NEXT_PUBLIC_VAPID_PUBLIC_KEY:-BGhYo-DnOzL7Oab7eLvYGkW7q7IoCqr7FgFZmyqyZEE9J0dTzXiS1VZbXwCyUvbwCO_b0a9TqAZhxoAOpA_eQ1A}"
+      VAPID_PRIVATE_KEY: "${VAPID_PRIVATE_KEY:-kS5hU5uqpOdsMAjVAOLFD5WXu9oWTuu5k7SSkrANgaw}"
+      VAPID_SUBJECT: "${VAPID_SUBJECT:-mailto:dev@localhost}"
       NODE_ENV: "development"
       PORT: "3080"
       HOSTNAME: "0.0.0.0"

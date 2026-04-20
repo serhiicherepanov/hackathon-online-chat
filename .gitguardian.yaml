@@ -12,4 +12,10 @@ secret:
     name: .env.e2e.example centrifugo hmac
   - match: e2e-centrifugo-api-key
     name: .env.e2e.example centrifugo api key
+  - match: BGhYo-DnOzL7Oab7eLvYGkW7q7IoCqr7FgFZmyqyZEE9J0dTzXiS1VZbXwCyUvbwCO_b0a9TqAZhxoAOpA_eQ1A
+    name: .env.example VAPID public key (dev placeholder)
+  - match: kS5hU5uqpOdsMAjVAOLFD5WXu9oWTuu5k7SSkrANgaw
+    name: .env.example VAPID private key (dev placeholder)
+  - match: mailto:e2e@localhost
+    name: .env.example VAPID subject (dev placeholder)
 version: 2
