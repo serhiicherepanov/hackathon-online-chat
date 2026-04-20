@@ -584,7 +584,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   return (
     <CentrifugeBoundary>
       <CentrifugeProvider userId={user.id}>
-        <div className="flex min-h-screen flex-col" data-realtime-status={realtimeStatus}>
+        <div className="flex h-screen min-h-0 flex-col" data-realtime-status={realtimeStatus}>
           <AppToastViewport toasts={toasts} />
           <Dialog open={dmOpen} onOpenChange={setDmOpen}>
             <DialogContent>
