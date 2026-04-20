@@ -71,6 +71,7 @@ model User {
   blocksSent          UserBlock[]    @relation("UserBlocker")
   blocksReceived      UserBlock[]    @relation("UserBlocked")
   presence            Presence?
+  pushSubscriptions   PushSubscription[]
 }
 
 model Session {
@@ -264,6 +265,21 @@ model Attachment {
 
   @@index([messageId])
   @@index([uploaderId, createdAt])
+}
+
+model PushSubscription {
+  id             String   @id @default(cuid())
+  userId         String
+  user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  endpoint       String   @unique
+  p256dh         String
+  auth           String
+  userAgent      String?
+  mirroredPrefs  Json     @default("{}")
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@index([userId])
 }
 
 model MessageRead {

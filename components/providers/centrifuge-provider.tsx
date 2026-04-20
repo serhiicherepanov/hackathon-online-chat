@@ -5,6 +5,11 @@ import { useQueryClient } from "@tanstack/react-query";
 import { createContext, useContext, useEffect, useMemo, useRef, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { createCentrifuge } from "@/lib/centrifuge";
+import {
+  notifyIncomingFriendRequest,
+  notifyIncomingMessage,
+} from "@/lib/notifications/bridge";
+import { useNotificationsRuntime } from "@/lib/notifications/runtime";
 import { useActiveConversationStore } from "@/lib/stores/active-conversation-store";
 import { useConnectionStore } from "@/lib/stores/connection-store";
 import { usePresenceStore } from "@/lib/stores/presence-store";
@@ -12,6 +17,7 @@ import { useToastStore, type AppToast } from "@/lib/stores/toast-store";
 import { useTypingStore } from "@/lib/stores/typing-store";
 import { useUnreadStore } from "@/lib/stores/unread-store";
 import type {
+  NotificationHintPayload,
   PresenceChangedPayload,
   SocialEventPayload,
   UnreadChangedPayload,
@@ -102,6 +108,8 @@ export function CentrifugeProvider({
   const setConnectionState = useConnectionStore((s) => s.setState);
   const pushToast = useToastStore((s) => s.push);
 
+  useNotificationsRuntime(Boolean(userId));
+
   // The realtime client must NOT be recreated on every navigation. The only
   // reason `handleSocialEvent` needs `pathname` is to decide whether to
   // `router.replace("/rooms")` after a ban/delete event. Route it through a
@@ -154,8 +162,23 @@ export function CentrifugeProvider({
         const data = ctx.data as
           | UnreadChangedPayload
           | PresenceChangedPayload
-          | SocialEventPayload;
+          | SocialEventPayload
+          | NotificationHintPayload;
         if (!data || typeof data !== "object") return;
+
+        if (data.type === "notification.hint") {
+          void notifyIncomingMessage({
+            conversationType: data.conversationType,
+            conversationId: data.conversationId,
+            roomName: data.roomName,
+            senderUsername: data.senderUsername,
+            message: {
+              id: data.messageId,
+              body: data.bodyPreview,
+            } as unknown as import("@/lib/messages/serialize").MessagePayload,
+          });
+          return;
+        }
 
         if (data.type === "unread.changed") {
           void queryClient.invalidateQueries({ queryKey: ["me", "dm-contacts"] });
@@ -184,6 +207,10 @@ export function CentrifugeProvider({
             .getState()
             .setStatus(data.userId, derivePresenceStatus(data));
           return;
+        }
+
+        if (data.type === "friend.request") {
+          void notifyIncomingFriendRequest(data);
         }
 
         if (

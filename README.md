@@ -48,6 +48,29 @@ docker compose -f docker-compose.prod.yml up -d --build
 Shut down with `docker compose -f docker-compose.prod.yml down`; add `-v` to
 wipe the Postgres and uploads volumes.
 
+### Desktop notifications & PWA
+
+The app ships as an installable PWA and delivers desktop notifications for
+direct messages, @-mentions, room messages, and friend requests. Foreground
+events use the browser `Notification` API; background events (all tabs closed)
+use Web Push with VAPID-authenticated requests via the [`web-push`](https://www.npmjs.com/package/web-push)
+library and a service worker registered at `/sw.js`.
+
+Generate a fresh VAPID keypair for any non-dev environment:
+
+```bash
+docker compose exec app pnpm tsx scripts/gen-vapid.ts
+# copy the three exports into your .env (NEXT_PUBLIC_VAPID_PUBLIC_KEY,
+# VAPID_PRIVATE_KEY, VAPID_SUBJECT). NEXT_PUBLIC_VAPID_PUBLIC_KEY is baked
+# into the client bundle at build time — rebuild the app image after changing.
+```
+
+Notification preferences (per-category toggles, per-category sound level, and
+mute window) live in IndexedDB on the client and are mirrored to the server
+for push dispatch. Users grant permission and enable push from the Settings
+page → "Desktop notifications" card; the prompt is gesture-gated and never
+fires on page load.
+
 ### Ports
 
 Only **Traefik** publishes a host port (controlled by `TRAEFIK_BIND_PORT`,

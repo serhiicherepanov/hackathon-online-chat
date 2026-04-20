@@ -80,6 +80,7 @@ services:
       target: production
       args:
         NEXT_PUBLIC_CENTRIFUGO_WS_URL: "${NEXT_PUBLIC_CENTRIFUGO_WS_URL:?set NEXT_PUBLIC_CENTRIFUGO_WS_URL to your wss:// URL}"
+        NEXT_PUBLIC_VAPID_PUBLIC_KEY: "${NEXT_PUBLIC_VAPID_PUBLIC_KEY:?set NEXT_PUBLIC_VAPID_PUBLIC_KEY to your VAPID public key (generate via pnpm tsx scripts/gen-vapid.ts)}"
     depends_on:
       db:
         condition: service_healthy
@@ -96,6 +97,9 @@ services:
       UPLOADS_DIR: "${UPLOADS_DIR:-/app/uploads}"
       PASSWORD_RESET_DELIVERY_FILE: "${PASSWORD_RESET_DELIVERY_FILE:-/app/uploads/password-reset-deliveries.log}"
       LOG_LEVEL: "${LOG_LEVEL:-info}"
+      NEXT_PUBLIC_VAPID_PUBLIC_KEY: "${NEXT_PUBLIC_VAPID_PUBLIC_KEY:?set NEXT_PUBLIC_VAPID_PUBLIC_KEY}"
+      VAPID_PRIVATE_KEY: "${VAPID_PRIVATE_KEY:?set VAPID_PRIVATE_KEY (generate via pnpm tsx scripts/gen-vapid.ts, never commit)}"
+      VAPID_SUBJECT: "${VAPID_SUBJECT:?set VAPID_SUBJECT to a mailto: URI identifying the push sender}"
       E2E_FAKE_TIME: "${E2E_FAKE_TIME:-0}"
       NODE_ENV: "production"
       PORT: "3080"

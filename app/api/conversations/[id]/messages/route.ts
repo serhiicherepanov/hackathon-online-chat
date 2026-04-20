@@ -13,7 +13,18 @@ import {
   encodeMessageCursor,
 } from "@/lib/messages/history-cursor";
 import { prisma } from "@/lib/prisma";
-import { broadcastUnreadToUsers, publishMessageCreated } from "@/lib/realtime/emit";
+import {
+  dispatchDmMessagePush,
+  dispatchMentionPushes,
+  dispatchRoomMessagePush,
+} from "@/lib/notifications/hooks";
+import { extractMentions } from "@/lib/notifications/mentions";
+import {
+  broadcastUnreadToUsers,
+  publishMessageCreated,
+  publishUserScopedEvent,
+} from "@/lib/realtime/emit";
+import type { NotificationHintPayload } from "@/lib/realtime/payloads";
 import type {
   MessageCreatedPayload,
   UnreadChangedPayload,
@@ -226,6 +237,82 @@ export async function POST(req: Request, ctx: Ctx) {
       unreadDelta: 1,
     };
     void broadcastUnreadToUsers(recipients, unreadPayload).catch(() => undefined);
+  }
+
+  const bodyPreview = (text ?? "").slice(0, 200);
+  if (conv.type === "dm" && recipients.length === 1) {
+    const hint: NotificationHintPayload = {
+      type: "notification.hint",
+      category: "dm",
+      conversationType: "dm",
+      conversationId: id,
+      senderUsername: gate.user.username,
+      bodyPreview,
+      messageId: serialized.id,
+    };
+    void publishUserScopedEvent(
+      recipients[0],
+      hint as unknown as import("@/lib/realtime/payloads").SocialEventPayload,
+    ).catch(() => undefined);
+    void dispatchDmMessagePush({
+      recipientId: recipients[0],
+      conversationId: id,
+      sender: { username: gate.user.username, id: gate.user.id },
+      message: serialized,
+    }).catch(() => undefined);
+  } else if (conv.type === "room" && recipients.length > 0) {
+    const room = await prisma.room.findUnique({
+      where: { conversationId: id },
+      select: { name: true },
+    });
+    const roomName = room?.name ?? "Room";
+    const mentionedUsernames = extractMentions(text ?? "");
+    const mentionedUsers =
+      mentionedUsernames.length > 0
+        ? await prisma.user.findMany({
+            where: {
+              username: { in: mentionedUsernames },
+              id: { in: recipients, not: gate.user.id },
+            },
+            select: { id: true },
+          })
+        : [];
+    const mentionedIds = new Set(mentionedUsers.map((u) => u.id));
+
+    for (const recipientId of recipients) {
+      const category: "mention" | "room" = mentionedIds.has(recipientId)
+        ? "mention"
+        : "room";
+      const hint: NotificationHintPayload = {
+        type: "notification.hint",
+        category,
+        conversationType: "room",
+        conversationId: id,
+        roomName,
+        senderUsername: gate.user.username,
+        bodyPreview,
+        messageId: serialized.id,
+      };
+      void publishUserScopedEvent(
+        recipientId,
+        hint as unknown as import("@/lib/realtime/payloads").SocialEventPayload,
+      ).catch(() => undefined);
+    }
+    void dispatchRoomMessagePush({
+      recipientIds: recipients,
+      conversationId: id,
+      roomName,
+      sender: { username: gate.user.username },
+      message: serialized,
+    }).catch(() => undefined);
+    void dispatchMentionPushes({
+      authorId: gate.user.id,
+      conversationId: id,
+      roomName,
+      sender: { username: gate.user.username },
+      message: serialized,
+      candidateRecipientIds: recipients,
+    }).catch(() => undefined);
   }
 
   return NextResponse.json({ message: serialized }, { status: 201 });
