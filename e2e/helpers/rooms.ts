@@ -12,7 +12,7 @@ export async function createRoomFromCatalog(
 ) {
   await page.locator("main").getByRole("button", { name: "Create room" }).click();
   const dialog = page.getByRole("dialog", { name: "Create room" });
-  await dialog.locator("#room-name").fill(name);
+  await dialog.locator("#create-room-name").fill(name);
   await dialog.getByRole("button", { name: visibility === "public" ? "Public" : "Private" }).click();
   await dialog.getByRole("button", { name: "Create" }).click();
   await page.waitForURL(/\/rooms\/[^/]+$/, { timeout: 30_000 });
